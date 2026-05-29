@@ -1,34 +1,40 @@
-import Versions from './components/Versions'
-import electronLogo from './assets/electron.svg'
+import { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import LoadingScreen from './components/LoadingScreen';
 
-function App() {
-  const ipcHandle = () => window.electron.ipcRenderer.send('ping')
+export default function App() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulamos el tiempo de inicialización de la app (3 segundos)
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
-    <>
-      <img alt="logo" className="logo" src={electronLogo} />
-      <div className="creator">Powered by electron-vite</div>
-      <div className="text">
-        Build an Electron app with <span className="react">React</span>
-      </div>
-      <p className="tip">
-        Please try pressing <code>F12</code> to open the devTool
-      </p>
-      <div className="actions">
-        <div className="action">
-          <a href="https://electron-vite.org/" target="_blank" rel="noreferrer">
-            Documentation
-          </a>
-        </div>
-        <div className="action">
-          <a target="_blank" rel="noreferrer" onClick={ipcHandle}>
-            Send IPC
-          </a>
-        </div>
-      </div>
-      <Versions></Versions>
-    </>
-  )
+    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-blue-500/30">
+      {/* AnimatePresence permite animar componentes cuando se desmontan (exit) */}
+      <AnimatePresence mode="wait">
+        {isLoading ? (
+          <LoadingScreen key="loading" />
+        ) : (
+          // Acá va a ir nuestro Login posteriormente
+          <motion.div 
+            key="main-app"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6 }}
+            className="flex items-center justify-center min-h-screen"
+          >
+            <h2 className="text-xl font-light text-slate-400 tracking-wider border border-slate-800 p-8 rounded-lg bg-slate-900/50 backdrop-blur-sm">
+              Pantalla de Login en construcción...
+            </h2>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
-
-export default App
