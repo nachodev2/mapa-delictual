@@ -4,30 +4,35 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoadingScreen from './components/LoadingScreen';
 import Login from './components/Login';
+import DashboardLayout from './components/layout/DashboardLayout';
+import MapView from './components/MapView';
 
-// Componente Provisorio del Dashboard
-function DashboardPlaceholder() {
-  const { role, logout } = useAuth();
-  
-  // Si alguien intenta entrar acá sin loguearse por URL, lo pateamos al login
-  if (!role) return <Navigate to="/login" />;
 
-  return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-8">
-      <h1 className="text-3xl text-white mb-4">Bienvenido al Sistema</h1>
-      <p className="text-blue-400 mb-8 text-xl">Tu nivel de acceso actual es: <strong className="uppercase">{role}</strong></p>
-      
-      <button 
-        onClick={logout}
-        className="px-6 py-2 bg-red-600/20 text-red-400 border border-red-600/50 rounded hover:bg-red-600/40 transition-colors"
-      >
-        Cerrar Sesión
-      </button>
-    </div>
-  );
+
+function UploadView() {
+  return <div className="w-full h-full flex flex-col items-center justify-center">
+    <h2 className="text-2xl text-slate-200 mb-4">Módulo de Carga Excel</h2>
+    <p className="text-slate-500">Área de Drag & Drop en construcción...</p>
+  </div>;
 }
 
-// Componente Principal de Enrutamiento
+function AdminView() {
+  return <div className="w-full h-full flex flex-col items-center justify-center">
+    <h2 className="text-2xl text-slate-200 mb-4">Panel de Administración</h2>
+    <p className="text-slate-500">Ajustes y resolución de conflictos geográficos...</p>
+  </div>;
+}
+
+// Enrutador de Rutas Protegidas
+function ProtectedRoute({ children, allowedRoles }) {
+  const { role } = useAuth();
+  
+  if (!role) return <Navigate to="/login" replace />;
+  if (allowedRoles && !allowedRoles.includes(role)) return <Navigate to="/dashboard" replace />;
+  
+  return children;
+}
+
 function AppRoutes() {
   const [isLoading, setIsLoading] = useState(true);
 
@@ -50,10 +55,18 @@ function AppRoutes() {
             className="w-full h-full min-h-screen"
           >
             <Routes>
-              {/* Redirección inicial */}
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/dashboard" element={<DashboardPlaceholder />} />
+              
+              {/* RUTAS DEL DASHBOARD (Envueltas en el Layout) */}
+              <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+                {/* El "index" es lo que carga por defecto en /dashboard (El Mapa) */}
+                <Route index element={<MapView />} />
+                
+                {/* Rutas protegidas por Rol */}
+                <Route path="upload" element={<ProtectedRoute allowedRoles={['operador', 'admin']}><UploadView /></ProtectedRoute>} />
+                <Route path="admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminView /></ProtectedRoute>} />
+              </Route>
             </Routes>
           </motion.div>
         )}
@@ -62,7 +75,6 @@ function AppRoutes() {
   );
 }
 
-// Raíz de la Aplicación (Envuelve con Contexto y Router)
 export default function App() {
   return (
     <AuthProvider>
