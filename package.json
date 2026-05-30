@@ -20,6 +20,7 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@react-google-maps/api": "^2.20.8",
     "@supabase/supabase-js": "^2.106.2",
     "@vis.gl/react-google-maps": "^1.8.3",
     "clsx": "^2.1.1",
