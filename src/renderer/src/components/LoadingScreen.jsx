@@ -36,7 +36,7 @@ export default function LoadingScreen() {
           </span>
         </h1>
 
-        <div className="w-64 h-[2px] bg-slate-800 rounded-full overflow-hidden relative">
+        <div className="w-64 h-0.5 bg-slate-800 rounded-full overflow-hidden relative">
           <motion.div
             className="absolute top-0 left-0 h-full bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"
             initial={{ width: '0%' }}

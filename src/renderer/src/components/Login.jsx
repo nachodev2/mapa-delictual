@@ -20,6 +20,7 @@ export default function Login() {
   useEffect(() => {
     const savedUsername = localStorage.getItem('policia_tucuman_user')
     if (savedUsername) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData((prev) => ({ ...prev, username: savedUsername }))
       setRememberMe(true)
     }
@@ -118,7 +119,7 @@ export default function Login() {
         transition={{ duration: 0.4 }}
         className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl overflow-hidden relative"
       >
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-blue-400 to-blue-600"></div>
+        <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-blue-600 via-blue-400 to-blue-600"></div>
 
         <div className="p-8 pt-10">
           <div className="mb-8 text-center">
