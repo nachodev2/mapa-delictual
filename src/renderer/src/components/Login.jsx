@@ -1,113 +1,119 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Lock, User, ChevronRight, ShieldAlert, Eye, EyeOff } from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // NUEVO
-import { useAuth } from '../context/AuthContext'; // NUEVO
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Lock, User, ChevronRight, ShieldAlert, Eye, EyeOff } from 'lucide-react'
+import { useNavigate } from 'react-router-dom' // NUEVO
+import { useAuth } from '../context/AuthContext' // NUEVO
 
 export default function Login() {
-  const navigate = useNavigate(); // Hook para cambiar de pantalla
-  const { login } = useAuth();    // Hook para guardar la sesión global
-  
-  const [formData, setFormData] = useState({ username: '', password: '' });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  
-  const [globalError, setGlobalError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({ username: '', password: '' });
-  const [shake, setShake] = useState(false);
+  const navigate = useNavigate() // Hook para cambiar de pantalla
+  const { login } = useAuth() // Hook para guardar la sesión global
+
+  const [formData, setFormData] = useState({ username: '', password: '' })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
+
+  const [globalError, setGlobalError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({ username: '', password: '' })
+  const [shake, setShake] = useState(false)
 
   useEffect(() => {
-    const savedUsername = localStorage.getItem('policia_tucuman_user');
+    const savedUsername = localStorage.getItem('policia_tucuman_user')
     if (savedUsername) {
-      setFormData(prev => ({ ...prev, username: savedUsername }));
-      setRememberMe(true);
+      setFormData((prev) => ({ ...prev, username: savedUsername }))
+      setRememberMe(true)
     }
-  }, []);
+  }, [])
 
   const validateForm = () => {
-    let isValid = true;
-    const newErrors = { username: '', password: '' };
+    let isValid = true
+    const newErrors = { username: '', password: '' }
 
-    const userToValidate = formData.username.trim();
-    const passToValidate = formData.password.trim();
+    const userToValidate = formData.username.trim()
+    const passToValidate = formData.password.trim()
 
-    const usernameRegex = /^[a-zA-Z0-9_.-]+$/;
+    const usernameRegex = /^[a-zA-Z0-9_.-]+$/
 
     if (userToValidate.length < 4) {
-      newErrors.username = 'El usuario debe tener al menos 4 caracteres.';
-      isValid = false;
+      newErrors.username = 'El usuario debe tener al menos 4 caracteres.'
+      isValid = false
     } else if (!usernameRegex.test(userToValidate)) {
-      newErrors.username = 'Caracteres inválidos. Use letras, números o guiones.';
-      isValid = false;
+      newErrors.username = 'Caracteres inválidos. Use letras, números o guiones.'
+      isValid = false
     }
 
     if (passToValidate.length < 6) {
-      newErrors.password = 'La contraseña debe tener al menos 6 caracteres.';
-      isValid = false;
+      newErrors.password = 'La contraseña debe tener al menos 6 caracteres.'
+      isValid = false
     }
 
-    setFieldErrors(newErrors);
-    
+    setFieldErrors(newErrors)
+
     if (!isValid) {
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
+      setShake(true)
+      setTimeout(() => setShake(false), 500)
     }
-    
-    return isValid;
-  };
+
+    return isValid
+  }
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    setGlobalError('');
-    
-    if (!validateForm()) return;
+    e.preventDefault()
+    setGlobalError('')
 
-    setIsSubmitting(true);
-    
-    const inputUser = formData.username.trim();
-    const inputPass = formData.password.trim();
+    if (!validateForm()) return
+
+    setIsSubmitting(true)
+
+    const inputUser = formData.username.trim()
+    const inputPass = formData.password.trim()
 
     if (rememberMe) {
-      localStorage.setItem('policia_tucuman_user', inputUser);
+      localStorage.setItem('policia_tucuman_user', inputUser)
     } else {
-      localStorage.removeItem('policia_tucuman_user');
+      localStorage.removeItem('policia_tucuman_user')
     }
 
     // Simulamos un pequeño delay de carga para la UX
     setTimeout(() => {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
 
       // Verificamos contra las variables de entorno de VITE
-      if (inputUser === import.meta.env.VITE_ADMIN_USERNAME && inputPass === import.meta.env.VITE_ADMIN_PASSWORD) {
-        login('admin');
-        navigate('/dashboard');
-      } 
-      else if (inputUser === import.meta.env.VITE_OPERADOR_USERNAME && inputPass === import.meta.env.VITE_OPERADOR_PASSWORD) {
-        login('operador');
-        navigate('/dashboard');
-      } 
-      else if (inputUser === import.meta.env.VITE_USER_USERNAME && inputPass === import.meta.env.VITE_USER_PASSWORD) {
-        login('user');
-        navigate('/dashboard');
-      } 
-      else {
+      if (
+        inputUser === import.meta.env.VITE_ADMIN_USERNAME &&
+        inputPass === import.meta.env.VITE_ADMIN_PASSWORD
+      ) {
+        login('admin')
+        navigate('/dashboard')
+      } else if (
+        inputUser === import.meta.env.VITE_OPERADOR_USERNAME &&
+        inputPass === import.meta.env.VITE_OPERADOR_PASSWORD
+      ) {
+        login('operador')
+        navigate('/dashboard')
+      } else if (
+        inputUser === import.meta.env.VITE_USER_USERNAME &&
+        inputPass === import.meta.env.VITE_USER_PASSWORD
+      ) {
+        login('user')
+        navigate('/dashboard')
+      } else {
         // Credenciales incorrectas
-        setGlobalError('Usuario o contraseña incorrectos. Verifique sus credenciales.');
-        setShake(true);
-        setTimeout(() => setShake(false), 500);
+        setGlobalError('Usuario o contraseña incorrectos. Verifique sus credenciales.')
+        setShake(true)
+        setTimeout(() => setShake(false), 500)
       }
-    }, 1200);
-  };
+    }, 1200)
+  }
 
   return (
-    <motion.div 
+    <motion.div
       className="flex flex-col items-center justify-center min-h-screen p-4"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
+      transition={{ duration: 0.6, ease: 'easeOut' }}
     >
-      <motion.div 
+      <motion.div
         animate={shake ? { x: [-10, 10, -10, 10, 0] } : {}}
         transition={{ duration: 0.4 }}
         className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl overflow-hidden relative"
@@ -116,12 +122,15 @@ export default function Login() {
 
         <div className="p-8 pt-10">
           <div className="mb-8 text-center">
-            <h2 className="text-2xl font-light text-slate-200 tracking-wide mb-2">Acceso al Sistema</h2>
-            <p className="text-xs text-slate-500 uppercase tracking-widest">Ingrese su usuario asignado</p>
+            <h2 className="text-2xl font-light text-slate-200 tracking-wide mb-2">
+              Acceso al Sistema
+            </h2>
+            <p className="text-xs text-slate-500 uppercase tracking-widest">
+              Ingrese su usuario asignado
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            
             {/* Input Usuario */}
             <div>
               <div className="relative">
@@ -132,20 +141,27 @@ export default function Login() {
                   type="text"
                   placeholder="Ej: operador_norte"
                   className={`w-full pl-10 pr-4 py-3 bg-slate-950/50 border rounded-lg text-slate-200 text-sm focus:outline-none transition-all placeholder:text-slate-600
-                    ${fieldErrors.username 
-                      ? 'border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/50' 
-                      : 'border-slate-800 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50'}`}
+                    ${
+                      fieldErrors.username
+                        ? 'border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/50'
+                        : 'border-slate-800 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50'
+                    }`}
                   value={formData.username}
                   onChange={(e) => {
-                    setFormData({ ...formData, username: e.target.value });
-                    if (fieldErrors.username) setFieldErrors({ ...fieldErrors, username: '' });
+                    setFormData({ ...formData, username: e.target.value })
+                    if (fieldErrors.username) setFieldErrors({ ...fieldErrors, username: '' })
                   }}
                   autoComplete="off"
                 />
               </div>
               <AnimatePresence>
                 {fieldErrors.username && (
-                  <motion.p initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-400 text-xs mt-1.5 ml-1">
+                  <motion.p
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-red-400 text-xs mt-1.5 ml-1"
+                  >
                     {fieldErrors.username}
                   </motion.p>
                 )}
@@ -162,13 +178,15 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   className={`w-full pl-10 pr-12 py-3 bg-slate-950/50 border rounded-lg text-slate-200 text-sm focus:outline-none transition-all placeholder:text-slate-600
-                    ${fieldErrors.password 
-                      ? 'border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/50' 
-                      : 'border-slate-800 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50'}`}
+                    ${
+                      fieldErrors.password
+                        ? 'border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/50'
+                        : 'border-slate-800 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50'
+                    }`}
                   value={formData.password}
                   onChange={(e) => {
-                    setFormData({ ...formData, password: e.target.value });
-                    if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: '' });
+                    setFormData({ ...formData, password: e.target.value })
+                    if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: '' })
                   }}
                 />
                 <button
@@ -181,7 +199,12 @@ export default function Login() {
               </div>
               <AnimatePresence>
                 {fieldErrors.password && (
-                  <motion.p initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-400 text-xs mt-1.5 ml-1">
+                  <motion.p
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-red-400 text-xs mt-1.5 ml-1"
+                  >
                     {fieldErrors.password}
                   </motion.p>
                 )}
@@ -189,21 +212,27 @@ export default function Login() {
             </div>
 
             {/* Checkbox Recordarme Animado */}
-            <div 
+            <div
               className="flex items-center gap-2 mt-1 cursor-pointer w-max group"
               onClick={() => setRememberMe(!rememberMe)}
             >
-              <div className={`w-4 h-4 rounded flex items-center justify-center transition-colors border 
+              <div
+                className={`w-4 h-4 rounded flex items-center justify-center transition-colors border 
                 ${rememberMe ? 'bg-blue-600 border-blue-600' : 'bg-slate-950/50 border-slate-700 group-hover:border-slate-500'}`}
               >
                 <AnimatePresence>
                   {rememberMe && (
-                    <motion.svg 
-                      initial={{ scale: 0 }} 
-                      animate={{ scale: 1 }} 
+                    <motion.svg
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
                       exit={{ scale: 0 }}
-                      className="w-3 h-3 text-white" 
-                      viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+                      className="w-3 h-3 text-white"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     >
                       <polyline points="20 6 9 17 4 12"></polyline>
                     </motion.svg>
@@ -218,7 +247,7 @@ export default function Login() {
             {/* Error Global */}
             <AnimatePresence>
               {globalError && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
@@ -242,19 +271,22 @@ export default function Login() {
               ) : (
                 <>
                   Iniciar Sesión
-                  <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  <ChevronRight
+                    size={18}
+                    className="group-hover:translate-x-1 transition-transform"
+                  />
                 </>
               )}
             </button>
           </form>
-          
+
           <div className="mt-8 pt-6 border-t border-slate-800/50 text-center">
-             <p className="text-[10px] text-slate-600 uppercase tracking-wider">
-               Sistema de uso exclusivo policial. Todo acceso es auditado.
-             </p>
+            <p className="text-[10px] text-slate-600 uppercase tracking-wider">
+              Sistema de uso exclusivo policial. Todo acceso es auditado.
+            </p>
           </div>
         </div>
       </motion.div>
     </motion.div>
-  );
+  )
 }
