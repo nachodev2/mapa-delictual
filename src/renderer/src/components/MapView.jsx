@@ -59,21 +59,17 @@ const PinesPoliciales = () => {
   const apiIsLoaded = useApiIsLoaded()
   
   const [comisariaSeleccionada, setComisariaSeleccionada] = useState(null)
-  
-  // Nuevo estado para controlar la animación de salida
   const [isClosing, setIsClosing] = useState(false)
 
-  // Función para abrir reseteando la animación
   const abrirModal = (comisaria) => {
     setIsClosing(false)
     setComisariaSeleccionada(comisaria)
   }
 
-  // Función para cerrar con demora de animación
   const cerrarModal = () => {
-    setIsClosing(true) // 1. Dispara las clases de Tailwind de achicarse y desvanecerse
+    setIsClosing(true)
     setTimeout(() => {
-      setComisariaSeleccionada(null) // 2. Después de 200ms, destruye el componente
+      setComisariaSeleccionada(null)
       setIsClosing(false)
     }, 200) 
   }
@@ -90,26 +86,20 @@ const PinesPoliciales = () => {
           onClick={() => abrirModal(comisaria)}
           icon={{
             url: logoPolicia,
-            scaledSize: new window.google.maps.Size(20, 30) 
+            scaledSize: new window.google.maps.Size(30, 30) 
           }}
         />
       ))}
 
       {comisariaSeleccionada && (
-        // Contenedor principal (fijate que agregamos transition-opacity)
         <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-200 ease-in-out ${isClosing ? 'opacity-0' : 'opacity-100'}`}>
-          
-          {/* Fondo oscuro clickeable para cerrar */}
           <div 
             className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-pointer" 
             onClick={cerrarModal}
             title="Hacé clic afuera para cerrar"
           ></div>
           
-          {/* Panel del Modal (agregamos transition-all y modificamos la escala al cerrar) */}
           <div className={`relative bg-[#0f172a] border border-slate-700 w-full max-w-4xl min-h-[500px] rounded-xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200 ease-in-out ${isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100 animate-in fade-in zoom-in-95'}`}>
-            
-            {/* Cabecera del Modal */}
             <div className="flex justify-between items-center bg-[#1e293b] px-6 py-4 border-b border-slate-700">
               <div>
                 <h2 className="text-xl font-bold text-blue-400">{comisariaSeleccionada.nombre}</h2>
@@ -124,7 +114,6 @@ const PinesPoliciales = () => {
               </button>
             </div>
 
-            {/* Cuerpo del Modal */}
             <div className="p-6 flex-1 text-slate-300 flex flex-col gap-4">
               <div className="bg-slate-800/50 border border-slate-700 p-4 rounded-lg mb-4 flex justify-between items-center">
                 <p className="text-sm">
@@ -143,7 +132,6 @@ const PinesPoliciales = () => {
               </div>
             </div>
 
-            {/* Pie del Modal */}
             <div className="bg-[#1e293b] px-6 py-4 border-t border-slate-700 flex justify-end gap-3">
               <button 
                 onClick={cerrarModal}
@@ -156,7 +144,6 @@ const PinesPoliciales = () => {
                 Descargar Informe
               </button>
             </div>
-
           </div>
         </div>
       )}
@@ -168,7 +155,6 @@ export default function MapView() {
   const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
   
   const centroRegionalEste = { lat: -26.8500, lng: -65.1200 }
-  
   const tucumanBounds = { north: -26.0500, south: -28.0200, west: -66.1800, east: -64.4800 }
 
   return (
