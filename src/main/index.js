@@ -6,9 +6,13 @@ import icon from '../../resources/icon.png?asset'
 function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
-    show: false,
+    // Tamaño inicial al abrirse
+    width: 1366,
+    height: 768,
+    // Tamaños mínimos para que el usuario no pueda achicarla más
+    minWidth: 1366,
+    minHeight: 768,
+    show: false, // Se mantendrá oculta hasta que el contenido cargue
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {

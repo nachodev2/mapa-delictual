@@ -1,0 +1,87 @@
+/* eslint-disable prettier/prettier */
+export const comisariasRegionalEste = [
+  { id: 1, nombre: 'DESTACAMENTO FRONTERIZO 7 DE ABRIL', lat: -26.2882, lng: -64.5005 },
+  { id: 2, nombre: 'COMISARIA 7 DE ABRIL', lat: -26.2885, lng: -64.5008 },
+  { id: 3, nombre: 'DESTACAMENTO FRONTERIZO LAGUNA DE ROBLES', lat: -26.2555, lng: -64.6498 },
+  { id: 4, nombre: 'COMISARIA DE CHILCAS', lat: -26.3806, lng: -64.6843 },
+  { id: 5, nombre: 'COMISARIA LOS PUESTITO', lat: -26.3501, lng: -64.6502 },
+  { id: 6, nombre: 'COMISARIA DE BURRUYACU', lat: -26.5012, lng: -64.7410 },
+  { id: 7, nombre: 'COMISARIA GOBERNADOR GARMENDIA', lat: -26.5702, lng: -64.5593 },
+  { id: 8, nombre: 'COMISARIA VILLA PADRE MONTI', lat: -26.5100, lng: -64.9944 },
+  { id: 9, nombre: 'COMISARIA EL CAJON', lat: -26.4705, lng: -64.8502 },
+  { id: 10, nombre: 'COMISARIA BENJAMIN ARAOZ', lat: -26.5563, lng: -64.8018 },
+  { id: 11, nombre: 'COMISARIA EL NARANJO', lat: -26.6460, lng: -65.0490 },
+  { id: 12, nombre: 'COMISARIA DE LA RAMADA', lat: -26.6884, lng: -64.9465 },
+  { id: 13, nombre: 'COMISARIA GOBERNADOR PIEDRABUENA', lat: -26.7384, lng: -64.6477 },
+  { id: 14, nombre: 'COMISARIA EL TIMBO', lat: -26.6790, lng: -65.1358 },
+  { id: 15, nombre: 'COMISARIA EL CHAÑAR', lat: -26.7578, lng: -65.0686 },
+  { id: 16, nombre: 'DESTACAMENTO FRONTERIZO LAS CEJAS', lat: -26.8891, lng: -64.7415 },
+  { id: 17, nombre: 'COMISARIA LOS RALOS', lat: -26.8885, lng: -65.0064 },
+  { id: 18, nombre: 'COMISARIA LA FLORIDA', lat: -26.8195, lng: -65.0946 },
+  { id: 19, nombre: 'COMISARIA ALDERETES', lat: -26.8194, lng: -65.1435 },
+  { id: 20, nombre: 'COMISARIA DELFIN GALLO', lat: -26.8442, lng: -65.0940 },
+  { id: 21, nombre: 'COMISARIA MARTIN M. DE GUEMES', lat: -26.8310, lng: -65.1678 },
+  { id: 22, nombre: 'COMISARIA BANDA DEL RIO SALI', lat: -26.8443, lng: -65.1592 },
+  { id: 23, nombre: 'DESTACAMENTO SOLDADO TUCUMANO', lat: -26.8491, lng: -65.1749 },
+  { id: 24, nombre: 'UNIDAD REGIONAL ESTE (Sede)', lat: -26.8401, lng: -65.1658 },
+  { id: 25, nombre: 'COMISARIA DE COLOMBRES', lat: -26.8965, lng: -65.1028 },
+  { id: 26, nombre: 'COMISARIA POZO DEL ALTO', lat: -26.8992, lng: -65.1469 },
+  { id: 27, nombre: 'COMISARIA DE RANCHILLOS', lat: -26.9528, lng: -65.0486 },
+  { id: 28, nombre: 'DESTACAMENTO EL NARANJITO', lat: -26.9829, lng: -65.0373 },
+  { id: 29, nombre: 'COMISARIA EL BRACHO', lat: -26.9905, lng: -65.1821 },
+  { id: 30, nombre: 'COMISARIA LOS BULACIOS', lat: -26.9825, lng: -65.2179 },
+  { id: 31, nombre: 'COMISARIA DE ESQUINA', lat: -27.0273, lng: -65.1943 },
+  { id: 32, nombre: 'COMISARIA MANCOPA', lat: -27.0297, lng: -65.1509 },
+  { id: 33, nombre: 'COMISARIA AGUA DULCE', lat: -27.0745, lng: -65.0361 },
+  { id: 34, nombre: 'COMISARIA ESTACION ARAOZ', lat: -27.0557, lng: -64.9199 },
+  { id: 35, nombre: 'DESTACAMENTO FRONTERIZO TACANAS', lat: -27.1403, lng: -64.8070 },
+  { id: 36, nombre: 'COMISARIA DE QUILMES', lat: -27.0592, lng: -65.2180 },
+  { id: 37, nombre: 'COMISARIA INGENIO LEALES', lat: -27.0688, lng: -65.2295 },
+  { id: 38, nombre: 'COMISARIA LOS SUELDOS', lat: -27.0912, lng: -65.2604 },
+  { id: 39, nombre: 'COMISARIA SANTA ROSA DE LEALES', lat: -27.1383, lng: -65.2614 },
+  { id: 40, nombre: 'COMISARIA ROMERA POZO', lat: -27.1087, lng: -65.1849 },
+  { id: 41, nombre: 'COMISARIA RIO COLORADO', lat: -27.1500, lng: -65.3569 },
+  { id: 42, nombre: 'COMISARIA VILLA DE LEALES', lat: -27.1943, lng: -65.3095 },
+  { id: 43, nombre: 'COMISARIA EL MOJON', lat: -27.2094, lng: -64.9304 },
+  { id: 44, nombre: 'COMISARIA CAMPO QUIMIL', lat: -27.2571, lng: -64.8542 },
+  { id: 45, nombre: 'COMISARIA LOS PUESTOS', lat: -27.2812, lng: -65.0183 },
+  { id: 46, nombre: 'COMISARIA LOS GOMEZ', lat: -27.3240, lng: -65.2104 },
+  { id: 47, nombre: 'DESTACAMENTO FRONTERIZO VALENTIN JIMENEZ', lat: -27.3709, lng: -64.9532 },
+  { id: 48, nombre: 'COMISARIA LOS HERRERA', lat: -27.4133, lng: -65.0805 }
+]
+
+export const zonasJurisdiccionales = [
+  { id: 'Z1', nombre: 'Z1' },
+  { id: 'Z2', nombre: 'Z2' },
+  { id: 'Z3', nombre: 'Z3' }
+]
+
+export const delitosPropiedad = [
+  { id: 'dp1', nombre: 'Daños' },
+  { id: 'dp2', nombre: 'Encubrimiento' },
+  { id: 'dp3', nombre: 'Estafa y Defraudación' },
+  { id: 'dp4', nombre: 'Otros Delitos Contra la Propiedad' },
+  { id: 'dp5', nombre: 'Falsificación de Documentos en General' },
+  { id: 'dp6', nombre: 'Falsificación o Supresión Numérica' },
+  { id: 'dp7', nombre: 'Hallazgos' },
+  { id: 'dp8', nombre: 'Hurtos' },
+  { id: 'dp9', nombre: 'Robo Simple/Agravado' },
+  { id: 'dp10', nombre: 'Robo con Arma de Fuego' }
+]
+
+export const delitosPersonas = [
+  { id: 'dpn1', nombre: 'Abandono de Persona Omision de Auxilio' },
+  { id: 'dpn2', nombre: 'Aborto' },
+  { id: 'dpn3', nombre: 'Abuso de Armas' },
+  { id: 'dpn4', nombre: 'Abuso Sexual con Acceso Carnal' },
+  { id: 'dpn5', nombre: 'Otros Delitos Contra la Integridad Sexual' },
+  { id: 'dpn6', nombre: 'Amenazas con Armas de Fuego' },
+  { id: 'dpn7', nombre: 'Homicidio en Grado de Tentativa' },
+  { id: 'dpn8', nombre: 'Amenazas' },
+  { id: 'dpn9', nombre: 'Desaparición de Persona y Búsqueda de Niños/Niñas/Adolescentes' },
+  { id: 'dpn10', nombre: 'Homicidio' },
+  { id: 'dpn11', nombre: 'Homicidio Culposo' },
+  { id: 'dpn12', nombre: 'Lesiones' },
+  { id: 'dpn13', nombre: 'Lesiones Culposas' },
+  { id: 'dpn14', nombre: 'Muerte Dudosa' }
+]
