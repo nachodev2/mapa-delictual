@@ -1,1 +1,30 @@
 @import 'tailwindcss';
+
+/* =========================================
+   SCROLLBAR PERSONALIZADA (DARK MODE)
+   ========================================= */
+
+/* Ancho total de la barra */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+/* El "carril" por donde baja la barra */
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent; 
+  border-radius: 8px;
+}
+
+/* La barra de desplazamiento en sí (el "pulgar") */
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #334155; /* Tono slate-700 de Tailwind */
+  border-radius: 8px;
+  /* Le damos un borde transparente para que parezca más finita y flotante */
+  border: 2px solid rgba(0, 0, 0, 0); 
+  background-clip: padding-box;
+}
+
+/* Cuando le pasás el mouse por encima a la barra */
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #475569; /* Tono slate-600 (un poco más claro) */
+}

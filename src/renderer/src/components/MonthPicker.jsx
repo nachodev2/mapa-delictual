@@ -13,7 +13,6 @@ export default function MonthPicker({ startDate, endDate, onDateChange }) {
   const [viewYear, setViewYear] = useState(new Date().getFullYear())
   const dropdownRef = useRef(null)
 
-  // Obtenemos la fecha límite actual (Hoy)
   const currentDate = new Date()
   const MAX_YEAR = currentDate.getFullYear()
   const MAX_MONTH_INDEX = currentDate.getMonth()
@@ -37,7 +36,6 @@ export default function MonthPicker({ startDate, endDate, onDateChange }) {
   const handleMonthSelect = (monthIndex) => {
     const selectedDate = `${viewYear}-${String(monthIndex + 1).padStart(2, '0')}`
 
-    // Doble validación de seguridad (Mínimo y Máximo)
     if (viewYear === MIN_YEAR && monthIndex < MIN_MONTH_INDEX) return
     if (viewYear === MAX_YEAR && monthIndex > MAX_MONTH_INDEX) return
 
@@ -125,7 +123,6 @@ export default function MonthPicker({ startDate, endDate, onDateChange }) {
               {MONTHS.map((month, index) => {
                 const currentIterDate = `${viewYear}-${String(index + 1).padStart(2, '0')}`
 
-                // Lógica de deshabilitado (No antes de Nov 2024, no después del mes actual)
                 const isBeforeMin = viewYear === MIN_YEAR && index < MIN_MONTH_INDEX
                 const isAfterMax =
                   viewYear > MAX_YEAR || (viewYear === MAX_YEAR && index > MAX_MONTH_INDEX)
