@@ -8,14 +8,10 @@ import Login from './components/Login'
 import DashboardLayout from './components/layout/DashboardLayout'
 import MapView from './components/MapView'
 
-function UploadView() {
-  return (
-    <div className="w-full h-full flex flex-col items-center justify-center">
-      <h2 className="text-2xl text-slate-200 mb-4">Módulo de Carga Excel</h2>
-      <p className="text-slate-500">Área de Drag & Drop en construcción...</p>
-    </div>
-  )
-}
+// 1. IMPORTAMOS TU NUEVO COMPONENTE DE CARGA DE EXCEL AQUÍ:
+import UploadView from './components/layout/UploadView'
+
+// 2. (Borramos la función UploadView falsa que estaba acá)
 
 function AdminView() {
   return (
