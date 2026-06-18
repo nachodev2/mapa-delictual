@@ -46,12 +46,11 @@ export default function UploadView() {
   }
 
   // ==========================================
-  // MOTOR DE LECTURA DE EXCEL
+  // MOTOR DE LECTURA HÍBRIDO (DOM NATIVO / EXCEL)
   // ==========================================
   const procesarArchivo = (file) => {
     setError('')
     
-    // Validar formato
     const extension = file.name.split('.').pop().toLowerCase()
     if (extension !== 'xlsx' && extension !== 'xls') {
       setError('Formato no válido. Por favor subí un archivo de Excel (.xlsx o .xls)')
@@ -65,30 +64,88 @@ export default function UploadView() {
 
     reader.onload = (e) => {
       try {
-        const data = new Uint8Array(e.target.result)
-        const workbook = XLSX.read(data, { type: 'array' })
+        const arrayBuffer = e.target.result
         
-        // Leer la primera hoja del Excel
-        const firstSheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[firstSheetName]
+        // Decodificamos el archivo protegiendo tildes y eñes
+        const decoder = new TextDecoder('iso-8859-1')
+        const textData = decoder.decode(arrayBuffer)
         
-        // Convertir la hoja a un array de objetos JSON (fila por fila)
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" })
+        let jsonData = []
+
+        // 1. Verificamos si es el "Falso Excel" (HTML)
+        if (textData.toLowerCase().includes('<html') || textData.toLowerCase().includes('<table')) {
+          console.log("Detectado Falso Excel (HTML). Extrayendo filas del DOM...")
+          
+          const parser = new DOMParser()
+          const htmlDoc = parser.parseFromString(textData, 'text/html')
+          
+          // Agarramos todas las filas de la tabla
+          const rows = Array.from(htmlDoc.querySelectorAll('tr'))
+          let headers = []
+
+          rows.forEach((row) => {
+            // Extraemos los textos de las celdas
+            const cells = Array.from(row.querySelectorAll('th, td')).map(c => c.innerText.trim())
+            if (cells.length === 0) return
+
+            // Detectamos si es una fila de datos reales viendo si empieza con el número de denuncia (Ej: D-604316)
+            const isDataRow = cells[0].toUpperCase().startsWith('D-') || cells[0].includes('/')
+
+            if (!isDataRow && headers.length === 0) {
+              // Si no es un dato y no tenemos cabeceras, la tomamos como cabecera
+              headers = cells.map((c, i) => c !== "" ? c : `COLUMNA_${i + 1}`)
+            } else if (isDataRow) {
+              // Es una fila de datos. Si el sistema mandó las cabeceras ocultas, inyectamos el estándar policial:
+              if (headers.length === 0) {
+                headers = [
+                  'NRO DENUNCIA', 'LOCALIDAD', 'COMISARIA', 'FECHA DENUNCIA', 
+                  'FECHA HECHO', 'DELITO', 'DIRECCION DEL HECHO', 'DENUNCIANTE', 'EDAD'
+                ]
+              }
+
+              // Armamos el objeto JSON perfecto
+              let rowData = {}
+              cells.forEach((val, i) => {
+                const key = headers[i] || `COLUMNA_${i + 1}`
+                rowData[key] = val
+              })
+              jsonData.push(rowData)
+            }
+          })
+
+        } else {
+          // 2. Si es un Excel Binario Real (.xlsx)
+          console.log("Detectado Excel Real (Binario).")
+          const data = new Uint8Array(arrayBuffer)
+          const workbook = XLSX.read(data, { type: 'array' })
+          
+          for (let sheetName of workbook.SheetNames) {
+            const worksheet = workbook.Sheets[sheetName]
+            const sheetData = XLSX.utils.sheet_to_json(worksheet, { defval: "", blankrows: false })
+            if (sheetData.length > 0) {
+              jsonData = sheetData
+              break
+            }
+          }
+        }
         
+        // Validación final
         if (jsonData.length === 0) {
-          setError('El archivo Excel parece estar vacío.')
+          setError('El archivo se leyó correctamente pero no contiene registros válidos en la tabla.')
           setExcelData([])
         } else {
           setExcelData(jsonData)
         }
+
       } catch (err) {
-        console.error(err)
-        setError('Ocurrió un error al intentar leer el archivo. Verificá que no esté corrupto.')
+        console.error("Error crítico al procesar:", err)
+        setError('El sistema no pudo interpretar la tabla. Verifique la estructura del archivo.')
       } finally {
         setIsProcessing(false)
       }
     }
 
+    // Leemos siempre como ArrayBuffer para soportar ambos formatos
     reader.readAsArrayBuffer(file)
   }
 
@@ -110,7 +167,7 @@ export default function UploadView() {
             Ingesta de Datos Operativos
           </h1>
           <p className="text-sm text-slate-400 mt-2">
-            Arrastrá el archivo Excel (.xlsx) exportado desde el sistema de comisarías para alimentar la base de datos geo-táctica.
+            Arrastrá el archivo exportado desde el sistema de comisarías para alimentar la base de datos geo-táctica.
           </p>
         </div>
 
@@ -141,7 +198,7 @@ export default function UploadView() {
                 <IconUpload size={40} />
               </div>
               <h3 className="text-lg font-semibold text-slate-200 mb-1">
-                Arrastrá y soltá tu Excel aquí
+                Arrastrá y soltá tu archivo aquí
               </h3>
               <p className="text-sm text-slate-500 max-w-sm">
                 o hacé clic en este área para explorar tus archivos. Solo se permiten formatos .xlsx o .xls
