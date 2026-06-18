@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion'
 import logoPolicia from '../assets/logo-policia.png'
+import logoCop from '../assets/logo-cop.png'
+import logoUre from '../assets/logo-ure.png'
 
 export default function LoadingScreen() {
   return (
@@ -20,12 +22,22 @@ export default function LoadingScreen() {
           initial={{ filter: 'drop-shadow(0px 0px 0px rgba(59, 130, 246, 0))' }}
           animate={{ filter: 'drop-shadow(0px 0px 15px rgba(59, 130, 246, 0.5))' }}
           transition={{ duration: 1.5, ease: 'easeOut' }}
-          className="mb-6"
+          className="mb-6 flex justify-center items-center gap-8" // <-- MAGIA AQUÍ
         >
           <img
             src={logoPolicia}
             alt="Logo Policía de Tucumán"
-            className="w-28 h-28 object-contain"
+            className="w-20 h-20 object-contain"
+          />
+          <img
+            src={logoUre}
+            alt="Logo URE"
+            className="w-20 h-20 object-contain"
+          />
+          <img
+            src={logoCop}
+            alt="Logo COP"
+            className="w-20 h-20 object-contain"
           />
         </motion.div>
 

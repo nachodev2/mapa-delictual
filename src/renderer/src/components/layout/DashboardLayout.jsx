@@ -36,6 +36,10 @@ import {
   delitosPersonas 
 } from '../../data/policiaData'
 
+// --- LIBRERÍAS NATIVAS PARA PDF (CORREGIDO) ---
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable' // Importación directa de la función
+
 export default function DashboardLayout() {
   const { role, logout } = useAuth()
   const navigate = useNavigate()
@@ -51,6 +55,8 @@ export default function DashboardLayout() {
   
   const [showComparativeModal, setShowComparativeModal] = useState(false)
   const [consultaData, setConsultaData] = useState(null)
+
+  const [isExporting, setIsExporting] = useState(false)
 
   const [hideModalWarning, setHideModalWarning] = useState(() => {
     return localStorage.getItem('hideReportWarning') === 'true'
@@ -128,6 +134,99 @@ export default function DashboardLayout() {
       setShowComparativeModal(true)
       if (window.innerWidth < 768) setIsRightPanelOpen(false)
     }, 1500)
+  }
+
+  // --- FUNCIÓN PARA GENERAR DOCUMENTO PDF NATIVO ---
+  const exportarComparativaPDF = () => {
+    setIsExporting(true);
+    try {
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      // --- MEMBRETE OFICIAL ---
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("POLICÍA DE TUCUMÁN", 105, 15, { align: "center" });
+      doc.text("UNIDAD REGIONAL ESTE", 105, 21, { align: "center" });
+      doc.text("CENTRO OPERACIONES POLICIALES URE", 105, 27, { align: "center" });
+      
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text("Calle República y Tornquinst - Lastenia - Tel.: 0381-4260528", 105, 33, { align: "center" });
+      doc.text("centrooperacionespolicialesure@gmail.com", 105, 38, { align: "center" });
+      
+      doc.setLineWidth(0.5);
+      doc.line(15, 42, 195, 42);
+
+      // --- TÍTULO DEL REPORTE ---
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("REPORTE COMPARATIVO JURISDICCIONAL", 105, 52, { align: "center" });
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Período analizado: ${consultaData.fechas.desde} al ${consultaData.fechas.hasta}`, 105, 58, { align: "center" });
+
+      let currentY = 70;
+
+      // --- TABLAS DINÁMICAS POR COMISARÍA ---
+      consultaData.comisarias_ids.forEach((idComisaria, index) => {
+        const comisariaInfo = comisariasRegionalEste.find(c => c.id === idComisaria);
+        const nombreComisaria = comisariaInfo ? comisariaInfo.nombre : `Comisaría ${idComisaria}`;
+        
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text(`UNIDAD: ${nombreComisaria}`, 15, currentY);
+        currentY += 6;
+
+        if (consultaData.delitos.propiedad.length > 0) {
+          const bodyPropiedad = consultaData.delitos.propiedad.map(id => {
+            const dInfo = delitosPropiedad.find(d => d.id === id);
+            return [dInfo ? dInfo.nombre : id, Math.floor(Math.random() * 20) + 1];
+          });
+          
+          // SINTAXIS CORREGIDA
+          autoTable(doc, {
+            startY: currentY,
+            head: [['Delitos vs. Propiedad', 'Casos Registrados']],
+            body: bodyPropiedad,
+            theme: 'grid',
+            headStyles: { fillColor: [15, 23, 42] }, 
+            margin: { left: 15, right: 15 }
+          });
+          currentY = doc.lastAutoTable.finalY + 10;
+        }
+
+        if (consultaData.delitos.personas.length > 0) {
+          const bodyPersonas = consultaData.delitos.personas.map(id => {
+            const dInfo = delitosPersonas.find(d => d.id === id);
+            return [dInfo ? dInfo.nombre : id, Math.floor(Math.random() * 15) + 1];
+          });
+
+          // SINTAXIS CORREGIDA
+          autoTable(doc, {
+            startY: currentY,
+            head: [['Delitos vs. Personas', 'Casos Registrados']],
+            body: bodyPersonas,
+            theme: 'grid',
+            headStyles: { fillColor: [15, 23, 42] },
+            margin: { left: 15, right: 15 }
+          });
+          currentY = doc.lastAutoTable.finalY + 15;
+        }
+
+        if (currentY > 250 && index < consultaData.comisarias_ids.length - 1) {
+          doc.addPage();
+          currentY = 20;
+        }
+      });
+
+      doc.save(`Reporte_Comparativo_${consultaData.fechas.desde}_al_${consultaData.fechas.hasta}.pdf`);
+    } catch (error) {
+      console.error("Error al generar PDF:", error);
+      alert("Error al generar el PDF: " + (error.message || error));
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   const handleLogout = () => {
@@ -225,7 +324,6 @@ export default function DashboardLayout() {
         </aside>
 
         <main className="flex-1 relative bg-slate-950 overflow-hidden w-full h-full">
-          {/* PASAMOS LA VARIABLE isRightPanelOpen AL CONTEXTO */}
           <Outlet context={{ selectedComisarias, selectedZonas, selectedPropiedad, selectedPersonas, isMapPristine, isRightPanelOpen }} />
         </main>
 
@@ -245,127 +343,135 @@ export default function DashboardLayout() {
                 exit={{ scale: 0.95, y: 20 }}
                 className="relative bg-slate-950 border border-slate-700 w-full max-w-7xl h-[95vh] sm:h-[85vh] flex flex-col rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.8)]"
               >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-8 py-4 sm:py-5 bg-slate-900 border-b border-slate-800 shrink-0 gap-4 sm:gap-0">
-                  <div>
-                    <h2 className="text-lg sm:text-xl font-bold text-slate-100 flex items-center gap-2 sm:gap-3">
-                      <Filter className="text-blue-500" size={20} />
-                      Reporte Operativo
-                    </h2>
-                    <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                      Período: <strong className="text-slate-200">{consultaData.fechas.desde}</strong> al <strong className="text-slate-200">{consultaData.fechas.hasta}</strong>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-end">
-                    <button className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold shadow-lg transition-all flex-1 sm:flex-none">
-                      <Download size={16} /> Descargar Excel
-                    </button>
-                    <div className="w-px h-8 bg-slate-700 hidden sm:block"></div>
-                    <button 
-                      onClick={() => setShowComparativeModal(false)}
-                      className="p-2 sm:p-2.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-red-500/20 hover:border-red-500/50 border border-slate-700 rounded-lg transition-all shrink-0"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-                </div>
-
-                {!hideModalWarning && (
-                  <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 sm:px-8 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-                    <div className="flex items-start sm:items-center gap-3">
-                      <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5 sm:mt-0" />
-                      <p className="text-xs text-amber-200/90 leading-relaxed">
-                        <strong className="text-amber-400">Aviso Visual:</strong> No todos los delitos encontrados se muestran en pantalla para mantener la estructura y legibilidad. Para ver el detalle exhaustivo de la comparativa, descárguese el reporte en formato Excel.
+                <div className="flex flex-col flex-1 h-full w-full bg-slate-950">
+                  
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-8 py-4 sm:py-5 bg-slate-900 border-b border-slate-800 shrink-0 gap-4 sm:gap-0">
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-bold text-slate-100 flex items-center gap-2 sm:gap-3">
+                        <Filter className="text-blue-500" size={20} />
+                        Reporte Operativo
+                      </h2>
+                      <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                        Período: <strong className="text-slate-200">{consultaData.fechas.desde}</strong> al <strong className="text-slate-200">{consultaData.fechas.hasta}</strong>
                       </p>
                     </div>
-                    <label className="flex items-center gap-2 text-xs font-medium text-amber-500/80 hover:text-amber-400 cursor-pointer transition-colors shrink-0 self-end sm:self-auto select-none">
-                      <input 
-                        type="checkbox" 
-                        className="w-3.5 h-3.5 accent-amber-500 rounded border-amber-500/30 cursor-pointer"
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            localStorage.setItem('hideReportWarning', 'true')
-                            setHideModalWarning(true)
-                          }
-                        }}
-                      />
-                      No volver a mostrar
-                    </label>
+                    <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-end">
+                      <button 
+                        onClick={exportarComparativaPDF} 
+                        disabled={isExporting}
+                        className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold shadow-lg transition-all flex-1 sm:flex-none disabled:opacity-50"
+                      >
+                        {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} 
+                        {isExporting ? 'Generando PDF...' : 'Exportar PDF'}
+                      </button>
+                      <div className="w-px h-8 bg-slate-700 hidden sm:block"></div>
+                      <button 
+                        onClick={() => setShowComparativeModal(false)}
+                        className="p-2 sm:p-2.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-red-500/20 hover:border-red-500/50 border border-slate-700 rounded-lg transition-all shrink-0"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
                   </div>
-                )}
 
-                <div className={`flex-1 min-h-0 overflow-y-auto sm:overflow-hidden grid ${gridColsClass} sm:divide-x divide-y sm:divide-y-0 divide-slate-800/80`}>
-                  {consultaData.comisarias_ids.map(idComisaria => {
-                    const comisariaInfo = comisariasRegionalEste.find(c => c.id === idComisaria)
-                    const totalCasos = Math.floor(Math.random() * (120 - 40 + 1) + 40);
-                    
-                    return (
-                      <div key={idComisaria} className="flex flex-col h-auto sm:h-full min-h-0 bg-slate-900/30">
-                        <div className="p-4 sm:p-6 border-b border-slate-800/50 bg-slate-900/60 shrink-0">
-                          <h3 className="text-base sm:text-lg font-bold text-blue-400 truncate">{comisariaInfo?.nombre || `Comisaría ${idComisaria}`}</h3>
-                          <div className="flex items-center gap-2 sm:gap-4 mt-3 sm:mt-4">
-                            <div className="bg-[#0b1120] border border-slate-700 rounded-lg px-3 sm:px-4 py-2 sm:py-3 flex-1">
-                              <span className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-widest font-bold">Total Exp.</span>
-                              <p className="text-2xl sm:text-3xl font-black text-slate-100 mt-0.5 sm:mt-1">{totalCasos}</p>
-                            </div>
-                            <div className="bg-[#0b1120] border border-red-900/30 rounded-lg px-3 sm:px-4 py-2 sm:py-3 flex-1">
-                              <span className="text-[9px] sm:text-[10px] text-red-500 uppercase tracking-widest font-bold">Variación</span>
-                              <p className="text-base sm:text-lg font-bold text-red-400 mt-0.5 sm:mt-1 flex items-center gap-1">
-                                <TrendingUp size={14} /> +12%
-                              </p>
+                  {!hideModalWarning && (
+                    <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 sm:px-8 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+                      <div className="flex items-start sm:items-center gap-3">
+                        <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5 sm:mt-0" />
+                        <p className="text-xs text-amber-200/90 leading-relaxed">
+                          <strong className="text-amber-400">Aviso Visual:</strong> No todos los delitos encontrados se muestran en pantalla para mantener la estructura y legibilidad. Para ver el detalle exhaustivo de la comparativa, descárguese el reporte en formato Excel.
+                        </p>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs font-medium text-amber-500/80 hover:text-amber-400 cursor-pointer transition-colors shrink-0 self-end sm:self-auto select-none">
+                        <input 
+                          type="checkbox" 
+                          className="w-3.5 h-3.5 accent-amber-500 rounded border-amber-500/30 cursor-pointer"
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              localStorage.setItem('hideReportWarning', 'true')
+                              setHideModalWarning(true)
+                            }
+                          }}
+                        />
+                        No volver a mostrar
+                      </label>
+                    </div>
+                  )}
+
+                  <div className={`flex-1 min-h-0 overflow-y-auto sm:overflow-hidden grid ${gridColsClass} sm:divide-x divide-y sm:divide-y-0 divide-slate-800/80`}>
+                    {consultaData.comisarias_ids.map(idComisaria => {
+                      const comisariaInfo = comisariasRegionalEste.find(c => c.id === idComisaria)
+                      const totalCasos = Math.floor(Math.random() * (120 - 40 + 1) + 40);
+                      
+                      return (
+                        <div key={idComisaria} className="flex flex-col h-auto sm:h-full min-h-0 bg-slate-900/30">
+                          <div className="p-4 sm:p-6 border-b border-slate-800/50 bg-slate-900/60 shrink-0">
+                            <h3 className="text-base sm:text-lg font-bold text-blue-400 truncate">{comisariaInfo?.nombre || `Comisaría ${idComisaria}`}</h3>
+                            <div className="flex items-center gap-2 sm:gap-4 mt-3 sm:mt-4">
+                              <div className="bg-[#0b1120] border border-slate-700 rounded-lg px-3 sm:px-4 py-2 sm:py-3 flex-1">
+                                <span className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-widest font-bold">Total Exp.</span>
+                                <p className="text-2xl sm:text-3xl font-black text-slate-100 mt-0.5 sm:mt-1">{totalCasos}</p>
+                              </div>
+                              <div className="bg-[#0b1120] border border-red-900/30 rounded-lg px-3 sm:px-4 py-2 sm:py-3 flex-1">
+                                <span className="text-[9px] sm:text-[10px] text-red-500 uppercase tracking-widest font-bold">Variación</span>
+                                <p className="text-base sm:text-lg font-bold text-red-400 mt-0.5 sm:mt-1 flex items-center gap-1">
+                                  <TrendingUp size={14} /> +12%
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="p-4 sm:p-6 flex-1 overflow-y-auto custom-scrollbar space-y-6 sm:space-y-8 min-h-0">
-                          {consultaData.delitos.propiedad.length > 0 && (
-                            <div>
-                              <h4 className="text-[10px] sm:text-xs uppercase tracking-widest text-slate-500 font-bold mb-3 sm:mb-4 border-b border-slate-800 pb-2">
-                                Delitos vs. Propiedad Consultados
-                              </h4>
-                              <div className="space-y-2.5 sm:space-y-3">
-                                {consultaData.delitos.propiedad.slice(0, 4).map((idDelito) => {
-                                  const dInfo = delitosPropiedad.find(d => d.id === idDelito)
-                                  const count = Math.floor(Math.random() * 20) + 1
-                                  return (
-                                    <div key={idDelito} className="flex justify-between items-center text-xs sm:text-sm">
-                                      <span className="text-slate-300 truncate pr-2 sm:pr-4">{dInfo?.nombre || idDelito}</span>
-                                      <span className="font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded">{count}</span>
-                                    </div>
-                                  )
-                                })}
-                                {consultaData.delitos.propiedad.length > 4 && (
-                                  <p className="text-[10px] sm:text-xs text-slate-500 italic mt-2">+ {consultaData.delitos.propiedad.length - 4} modalidades analizadas.</p>
-                                )}
+                          <div className="p-4 sm:p-6 flex-1 overflow-y-auto custom-scrollbar space-y-6 sm:space-y-8 min-h-0">
+                            {consultaData.delitos.propiedad.length > 0 && (
+                              <div>
+                                <h4 className="text-[10px] sm:text-xs uppercase tracking-widest text-slate-500 font-bold mb-3 sm:mb-4 border-b border-slate-800 pb-2">
+                                  Delitos vs. Propiedad Consultados
+                                </h4>
+                                <div className="space-y-2.5 sm:space-y-3">
+                                  {consultaData.delitos.propiedad.slice(0, 4).map((idDelito) => {
+                                    const dInfo = delitosPropiedad.find(d => d.id === idDelito)
+                                    const count = Math.floor(Math.random() * 20) + 1
+                                    return (
+                                      <div key={idDelito} className="flex justify-between items-center text-xs sm:text-sm">
+                                        <span className="text-slate-300 truncate pr-2 sm:pr-4">{dInfo?.nombre || idDelito}</span>
+                                        <span className="font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded">{count}</span>
+                                      </div>
+                                    )
+                                  })}
+                                  {consultaData.delitos.propiedad.length > 4 && (
+                                    <p className="text-[10px] sm:text-xs text-slate-500 italic mt-2">+ {consultaData.delitos.propiedad.length - 4} modalidades analizadas.</p>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
 
-                          {consultaData.delitos.personas.length > 0 && (
-                            <div>
-                              <h4 className="text-[10px] sm:text-xs uppercase tracking-widest text-slate-500 font-bold mb-3 sm:mb-4 border-b border-slate-800 pb-2">
-                                Delitos vs. Personas Consultados
-                              </h4>
-                              <div className="space-y-2.5 sm:space-y-3">
-                                {consultaData.delitos.personas.slice(0, 4).map((idDelito) => {
-                                  const dInfo = delitosPersonas.find(d => d.id === idDelito)
-                                  const count = Math.floor(Math.random() * 15) + 1
-                                  return (
-                                    <div key={idDelito} className="flex justify-between items-center text-xs sm:text-sm">
-                                      <span className="text-slate-300 truncate pr-2 sm:pr-4">{dInfo?.nombre || idDelito}</span>
-                                      <span className="font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded">{count}</span>
-                                    </div>
-                                  )
-                                })}
-                                {consultaData.delitos.personas.length > 4 && (
-                                  <p className="text-[10px] sm:text-xs text-slate-500 italic mt-2">+ {consultaData.delitos.personas.length - 4} modalidades analizadas.</p>
-                                )}
+                            {consultaData.delitos.personas.length > 0 && (
+                              <div>
+                                <h4 className="text-[10px] sm:text-xs uppercase tracking-widest text-slate-500 font-bold mb-3 sm:mb-4 border-b border-slate-800 pb-2">
+                                  Delitos vs. Personas Consultados
+                                </h4>
+                                <div className="space-y-2.5 sm:space-y-3">
+                                  {consultaData.delitos.personas.slice(0, 4).map((idDelito) => {
+                                    const dInfo = delitosPersonas.find(d => d.id === idDelito)
+                                    const count = Math.floor(Math.random() * 15) + 1
+                                    return (
+                                      <div key={idDelito} className="flex justify-between items-center text-xs sm:text-sm">
+                                        <span className="text-slate-300 truncate pr-2 sm:pr-4">{dInfo?.nombre || idDelito}</span>
+                                        <span className="font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded">{count}</span>
+                                      </div>
+                                    )
+                                  })}
+                                  {consultaData.delitos.personas.length > 4 && (
+                                    <p className="text-[10px] sm:text-xs text-slate-500 italic mt-2">+ {consultaData.delitos.personas.length - 4} modalidades analizadas.</p>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
@@ -393,7 +499,6 @@ export default function DashboardLayout() {
                       <History size={16} className="text-blue-500" />
                       <span className="text-sm font-medium tracking-wide">Historial de Cargas</span>
                     </div>
-                    {/* LE QUITAMOS EL md:hidden PARA QUE SE PUEDA CERRAR EN PC Y MÓVIL */}
                     <button onClick={() => setIsRightPanelOpen(false)} className="p-1 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 transition-colors">
                       <X size={20}/>
                     </button>
@@ -426,7 +531,6 @@ export default function DashboardLayout() {
                       <Filter size={16} className="text-blue-500" />
                       <span className="text-sm font-medium tracking-wide">Motor de Consultas</span>
                     </div>
-                    {/* LE QUITAMOS EL md:hidden PARA QUE SE PUEDA CERRAR EN PC Y MÓVIL */}
                     <button onClick={() => setIsRightPanelOpen(false)} className="p-1 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 transition-colors">
                       <X size={20}/>
                     </button>

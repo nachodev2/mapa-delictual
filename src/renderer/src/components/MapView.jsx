@@ -17,6 +17,11 @@ import logoUre from '../assets/logo-ure.png'
 import { comisariasRegionalEste } from '../data/policiaData' 
 import MonthPicker from './MonthPicker' 
 
+// --- LIBRERÍAS MODERNAS PARA PDF Y TABLAS NATIVAS ---
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import { toPng } from 'html-to-image' // Agregamos toPng para fotografiar solo los gráficos
+
 const policiaIcon = new L.Icon({
   iconUrl: logoPolicia,
   iconSize: [30, 30], 
@@ -27,7 +32,6 @@ function MapUpdater() {
   const map = useMap()
   
   useEffect(() => {
-    // Un ResizeObserver vigila los cambios de tamaño del contenedor en tiempo real
     const resizeObserver = new ResizeObserver(() => {
       map.invalidateSize()
     })
@@ -37,7 +41,6 @@ function MapUpdater() {
       resizeObserver.observe(container)
     }
     
-    // Limpieza cuando el componente se desmonta
     return () => {
       if (container) resizeObserver.unobserve(container)
       resizeObserver.disconnect()
@@ -90,6 +93,8 @@ export default function MapView() {
   const [isClosing, setIsClosing] = useState(false)
   const [activeTab, setActiveTab] = useState('resumen')
 
+  const [isExporting, setIsExporting] = useState(false)
+
   const currentMonth = new Date().toISOString().slice(0, 7)
   const [modalStartDate, setModalStartDate] = useState('2026-05')
   const [modalEndDate, setModalEndDate] = useState(currentMonth)
@@ -113,6 +118,15 @@ export default function MapView() {
     }, 300) 
   }
 
+  const CHART_COLORS = ['#3b82f6', '#10b981', '#eab308', '#ef4444', '#8b5cf6', '#f97316'];
+  const dataHistoricaLineas = [
+    { name: 'Ene', causas: 24 }, { name: 'Feb', causas: 45 }, { name: 'Mar', causas: 31 },
+    { name: 'Abr', causas: 56 }, { name: 'May', causas: 48 }, { name: 'Jun', causas: 62 }
+  ];
+  const dataBienesJuridicosPie = [
+    { name: 'Contra la Propiedad', value: 91 }, { name: 'Contra las Personas', value: 46 }
+  ];
+
   const mockResumen = [
     { id: 'dp10', tipo: 'Robo con Arma de Fuego', cantidad: 45, tendencia: 'alta' },
     { id: 'dp8', tipo: 'Hurtos', cantidad: 28, tendencia: 'media' },
@@ -121,6 +135,92 @@ export default function MapView() {
     { id: 'dp9', tipo: 'Robo Simple/Agravado', cantidad: 18, tendencia: 'media' },
     { id: 'dpn4', tipo: 'Abuso Sexual con Acceso Carnal', cantidad: 3, tendencia: 'alta' },
   ]
+
+  // =========================================================================
+  // NUEVA LÓGICA DE EXPORTACIÓN NATIVA (Membrete + Tabla + Gráficos Fotografiados)
+  // =========================================================================
+  const exportarConsolaPDF = async () => {
+    if (!comisariaSeleccionada) return;
+    setIsExporting(true);
+    
+    try {
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      // --- 1. MEMBRETE OFICIAL ---
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("POLICÍA DE TUCUMÁN", 105, 15, { align: "center" });
+      doc.text("UNIDAD REGIONAL ESTE", 105, 21, { align: "center" });
+      doc.text("CENTRO OPERACIONES POLICIALES URE", 105, 27, { align: "center" });
+      
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text("Calle República y Tornquinst - Lastenia - Tel.: 0381-4260528", 105, 33, { align: "center" });
+      doc.text("centrooperacionespolicialesure@gmail.com", 105, 38, { align: "center" });
+      
+      doc.setLineWidth(0.5);
+      doc.line(15, 42, 195, 42);
+
+      // --- 2. TÍTULO DEL REPORTE ---
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(`REPORTE OPERATIVO: ${comisariaSeleccionada.nombre.toUpperCase()}`, 105, 52, { align: "center" });
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Período analizado: ${modalStartDate} al ${modalEndDate}`, 105, 58, { align: "center" });
+
+      // --- 3. TABLA DE RESUMEN MENSUAL NATIVA ---
+      autoTable(doc, {
+        startY: 68,
+        head: [['Tipificación del Delito', 'Total Registrado', 'Nivel de Alerta']],
+        body: mockResumen.map(item => [item.tipo, item.cantidad, item.tendencia.toUpperCase()]),
+        theme: 'grid',
+        headStyles: { fillColor: [15, 23, 42] }, 
+        margin: { left: 15, right: 15 }
+      });
+
+      let finalY = doc.lastAutoTable.finalY + 15;
+
+      // --- 4. CAPTURAR EL CONTENEDOR OCULTO DE GRÁFICOS ---
+      const chartsElement = document.getElementById('export-charts-container-hidden');
+      if (chartsElement) {
+        const imgData = await toPng(chartsElement, { 
+          quality: 1, 
+          pixelRatio: 2, 
+          backgroundColor: '#0f172a' 
+        });
+        
+        // Dimensiones en el PDF (La hoja A4 tiene 210mm de ancho. 180mm nos deja márgenes perfectos)
+        const pdfWidth = 180;
+        const imgProps = doc.getImageProperties(imgData);
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+        // Si los gráficos no entran en la primera hoja, creamos una segunda hoja nueva
+        if (finalY + pdfHeight > 280) {
+          doc.addPage();
+          finalY = 20;
+        }
+
+        // Título de la sección de gráficos
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("ANÁLISIS GRÁFICO JURISDICCIONAL", 105, finalY, { align: "center" });
+        finalY += 8;
+
+        // Pegamos la foto perfecta de los gráficos en el PDF
+        doc.addImage(imgData, 'PNG', 15, finalY, pdfWidth, pdfHeight);
+      }
+
+      doc.save(`Reporte_COP_${comisariaSeleccionada.nombre.replace(/ /g, '_')}.pdf`);
+    } catch (error) {
+      console.error("Error al generar PDF:", error);
+      alert("Error al generar el PDF: " + (error.message || error));
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
 
   const mockExpedientes = [
     { id: 'EXP-2026-0412', fecha: '2026-05-12', tipo: 'Robo con Arma de Fuego', modalidad: 'Motochorros', estado: 'En Investigación' },
@@ -139,15 +239,6 @@ export default function MapView() {
       return cumpleQuery && cumpleTipo;
     })
   }, [searchExpediente, filterDelito]);
-
-  const CHART_COLORS = ['#3b82f6', '#10b981', '#eab308', '#ef4444', '#8b5cf6', '#f97316'];
-  const dataHistoricaLineas = [
-    { name: 'Ene', causas: 24 }, { name: 'Feb', causas: 45 }, { name: 'Mar', causas: 31 },
-    { name: 'Abr', causas: 56 }, { name: 'May', causas: 48 }, { name: 'Jun', causas: 62 }
-  ];
-  const dataBienesJuridicosPie = [
-    { name: 'Contra la Propiedad', value: 91 }, { name: 'Contra las Personas', value: 46 }
-  ];
 
   return (
     <div className="absolute inset-0 overflow-hidden z-0 flex flex-col">
@@ -178,253 +269,298 @@ export default function MapView() {
 
           <div className={`absolute bottom-0 left-0 w-full h-[80vh] md:h-[55vh] bg-slate-950 border-t border-blue-500/30 shadow-[0_-20px_50px_rgba(0,0,0,0.8)] flex flex-col z-[5000] transition-transform duration-300 ease-in-out ${isClosing ? 'translate-y-full' : 'translate-y-0'}`}>
             
-            <div className="absolute inset-y-0 right-10 z-0 flex items-center justify-center pointer-events-none opacity-[0.03]">
-              <img src={logoUre} alt="Marca de agua" className="w-[400px] h-[400px] object-contain grayscale" />
-            </div>
+            <div className="flex flex-col flex-1 h-full w-full bg-slate-950 relative">
 
-            <div className="flex flex-col md:flex-row md:justify-between md:items-end px-4 md:px-8 pt-4 md:pt-5 pb-0 border-b border-slate-800/80 bg-slate-900/60 shrink-0 relative z-10 gap-4 md:gap-0">
-              <div className="flex flex-col gap-4 w-full">
-                <div className="flex items-center gap-4">
-                  <img src={logoPolicia} alt="Escudo" className="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-[0_0_8px_rgba(59,130,246,0.4)]" />
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-lg md:text-xl font-bold text-slate-100 tracking-wide truncate">
-                      {comisariaSeleccionada.nombre}
-                    </h2>
-                    <p className="text-[10px] md:text-[11px] text-blue-400 mt-0.5 font-medium tracking-widest uppercase opacity-80">
-                      Unidad Regional Este | Tucumán
-                    </p>
-                  </div>
-                  <button onClick={cerrarConsola} className="md:hidden p-2 text-slate-500 hover:text-white bg-slate-900 border border-slate-800 rounded-lg shrink-0">
-                    <IconClose size={18} />
-                  </button>
-                </div>
-
-                <div className="flex gap-4 md:gap-8 overflow-x-auto custom-scrollbar pb-1 -mb-1">
-                  <button onClick={() => setActiveTab('resumen')} className={`flex items-center gap-2 pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 whitespace-nowrap ${activeTab === 'resumen' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-                    <IconList size={14} className="md:w-4 md:h-4" /> Resumen Mensual
-                  </button>
-                  <button onClick={() => setActiveTab('expedientes')} className={`flex items-center gap-2 pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 whitespace-nowrap ${activeTab === 'expedientes' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-                    <IconDatabase size={14} className="md:w-4 md:h-4" /> Expedientes (Excel)
-                  </button>
-                  <button onClick={() => setActiveTab('graficos')} className={`flex items-center gap-2 pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 whitespace-nowrap ${activeTab === 'graficos' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-                    <IconPieChart size={14} className="md:w-4 md:h-4" /> Panel Gráfico
-                  </button>
-                </div>
+              <div className="absolute inset-y-0 right-10 z-0 flex items-center justify-center pointer-events-none opacity-[0.03]">
+                <img src={logoUre} alt="Marca de agua" className="w-[400px] h-[400px] object-contain grayscale" />
               </div>
 
-              <div className="hidden md:flex items-center gap-4 pb-3 shrink-0">
-                <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 shadow-inner">
-                  <IconCalendar size={14} className="text-slate-400" />
-                  <div className="relative [&_.absolute]:!bottom-full [&_.absolute]:!top-auto [&_.absolute]:!mb-4 [&_.absolute]:!origin-bottom z-50">
-                    <MonthPicker startDate={modalStartDate} endDate={modalEndDate} onDateChange={(s, e) => { setModalStartDate(s); setModalEndDate(e); }} />
-                  </div>
-                </div>
-                <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold rounded-lg flex items-center gap-2 transition-all">
-                  <IconExport size={14} /> Exportar
-                </button>
-                <div className="h-6 w-px bg-slate-800 mx-1"></div>
-                <button onClick={cerrarConsola} className="p-2 text-slate-500 hover:text-white bg-slate-900 hover:bg-red-500/20 hover:border-red-500/50 border border-slate-800 rounded-lg transition-all">
-                  <IconClose size={18} />
-                </button>
-              </div>
-            </div>
-
-            {/* CORRECCIÓN SCROLL: Le sacamos el overflow-y-auto al padre y forzamos el overflow-hidden. Dejamos que los hijos hagan el scroll. */}
-            <div className="flex-1 overflow-hidden p-4 md:p-6 relative z-10 flex flex-col min-h-0">
-              
-              {/* --- PESTAÑA 1: RESUMEN MENSUAL --- */}
-              {activeTab === 'resumen' && (
-                <div className="animate-in fade-in duration-300 h-full flex flex-col min-h-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 shrink-0">
-                    <h3 className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-widest">Consolidado de Causas (Último mes)</h3>
-                    <button className="md:hidden self-start px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-bold rounded flex items-center gap-2">
-                      <IconExport size={12} /> Exportar
+              <div className="flex flex-col md:flex-row md:justify-between md:items-end px-4 md:px-8 pt-4 md:pt-5 pb-0 border-b border-slate-800/80 bg-slate-900/60 shrink-0 relative z-10 gap-4 md:gap-0">
+                <div className="flex flex-col gap-4 w-full">
+                  <div className="flex items-center gap-4">
+                    <img src={logoPolicia} alt="Escudo" className="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-[0_0_8px_rgba(59,130,246,0.4)]" />
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg md:text-xl font-bold text-slate-100 tracking-wide truncate">
+                        {comisariaSeleccionada.nombre}
+                      </h2>
+                      <p className="text-[10px] md:text-[11px] text-blue-400 mt-0.5 font-medium tracking-widest uppercase opacity-80">
+                        Unidad Regional Este | Tucumán
+                      </p>
+                    </div>
+                    <button onClick={cerrarConsola} className="md:hidden p-2 text-slate-500 hover:text-white bg-slate-900 border border-slate-800 rounded-lg shrink-0">
+                      <IconClose size={18} />
                     </button>
                   </div>
 
-                  <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl shadow-xl max-w-4xl w-full flex-1 flex flex-col min-h-0 overflow-hidden">
-                    {/* SCROLL ACTIVO ACÁ */}
-                    <div className="overflow-auto flex-1 custom-scrollbar">
-                      <table className="w-full text-left text-xs md:text-sm text-slate-300 min-w-[500px]">
-                        {/* THEAD con fondo completamente sólido y Z-Index más alto */}
-                        <thead className="bg-[#0b1120] uppercase text-[9px] md:text-[10px] tracking-widest text-slate-500 border-b border-slate-800/60 sticky top-0 z-20">
-                          <tr>
-                            <th className="px-4 md:px-6 py-3 font-semibold w-1/2">Tipificación del Delito</th>
-                            <th className="px-4 md:px-6 py-3 font-semibold text-center">Total Registrado</th>
-                            <th className="px-4 md:px-6 py-3 font-semibold text-center">Nivel de Alerta</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-800/40">
-                          {mockResumen.map((item, index) => (
-                            <tr key={index} className="hover:bg-slate-800/30 transition-colors group">
-                              <td className="px-4 md:px-6 py-3 md:py-4 font-medium text-slate-200">{item.tipo}</td>
-                              <td className="px-4 md:px-6 py-3 md:py-4 text-center">
-                                <span className="text-lg md:text-xl font-bold text-slate-100">{item.cantidad}</span>
-                              </td>
-                              <td className="px-4 md:px-6 py-3 md:py-4 flex justify-center">
-                                <span className={`px-2 md:px-3 py-1 rounded text-[9px] md:text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${
-                                  item.tendencia === 'alta' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 
-                                  item.tendencia === 'media' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 
-                                  'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-                                }`}>
-                                  {item.tendencia}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                  <div className="flex gap-4 md:gap-8 overflow-x-auto custom-scrollbar pb-1 -mb-1">
+                    <button onClick={() => setActiveTab('resumen')} className={`flex items-center gap-2 pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 whitespace-nowrap ${activeTab === 'resumen' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
+                      <IconList size={14} className="md:w-4 md:h-4" /> Resumen Mensual
+                    </button>
+                    <button onClick={() => setActiveTab('expedientes')} className={`flex items-center gap-2 pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 whitespace-nowrap ${activeTab === 'expedientes' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
+                      <IconDatabase size={14} className="md:w-4 md:h-4" /> Expedientes (Excel)
+                    </button>
+                    <button onClick={() => setActiveTab('graficos')} className={`flex items-center gap-2 pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 whitespace-nowrap ${activeTab === 'graficos' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
+                      <IconPieChart size={14} className="md:w-4 md:h-4" /> Panel Gráfico
+                    </button>
                   </div>
                 </div>
-              )}
 
-              {/* --- PESTAÑA 2: EXPEDIENTES --- */}
-              {activeTab === 'expedientes' && (
-                <div className="animate-in fade-in duration-300 h-full flex flex-col min-h-0">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-3 shrink-0">
-                    <h3 className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-widest">Base Operativa Completa</h3>
-                    <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
-                      <select 
-                        value={filterDelito}
-                        onChange={(e) => setFilterDelito(e.target.value)}
-                        className="bg-slate-900 border border-slate-800 text-xs text-slate-300 rounded-md px-3 py-1.5 md:py-2 focus:outline-none focus:border-blue-500"
+                <div className="hidden md:flex items-center gap-4 pb-3 shrink-0">
+                  <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 shadow-inner">
+                    <IconCalendar size={14} className="text-slate-400" />
+                    <div className="relative [&_.absolute]:!bottom-full [&_.absolute]:!top-auto [&_.absolute]:!mb-4 [&_.absolute]:!origin-bottom z-50">
+                      <MonthPicker startDate={modalStartDate} endDate={modalEndDate} onDateChange={(s, e) => { setModalStartDate(s); setModalEndDate(e); }} />
+                    </div>
+                  </div>
+                  <button 
+                    onClick={exportarConsolaPDF}
+                    disabled={isExporting}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold rounded-lg flex items-center gap-2 transition-all disabled:opacity-50"
+                  >
+                    <IconExport size={14} /> {isExporting ? 'Generando...' : 'Exportar a PDF'}
+                  </button>
+                  <div className="h-6 w-px bg-slate-800 mx-1"></div>
+                  <button onClick={cerrarConsola} className="p-2 text-slate-500 hover:text-white bg-slate-900 hover:bg-red-500/20 hover:border-red-500/50 border border-slate-800 rounded-lg transition-all">
+                    <IconClose size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-hidden p-4 md:p-6 relative z-10 flex flex-col min-h-0">
+                
+                {activeTab === 'resumen' && (
+                  <div className="animate-in fade-in duration-300 h-full flex flex-col min-h-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 shrink-0">
+                      <h3 className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-widest">Consolidado de Causas (Último mes)</h3>
+                      <button 
+                        onClick={exportarConsolaPDF}
+                        disabled={isExporting}
+                        className="md:hidden self-start px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-bold rounded flex items-center gap-2 disabled:opacity-50"
                       >
-                        <option value="TODOS">Todas las Tipificaciones</option>
-                        {mockResumen.map(d => <option key={d.tipo} value={d.tipo}>{d.tipo}</option>)}
-                      </select>
-                      <div className="relative flex-1 sm:w-64">
-                        <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                        <input 
-                          type="text" 
-                          placeholder="Buscar Expediente o Modalidad..." 
-                          value={searchExpediente}
-                          onChange={(e) => setSearchExpediente(e.target.value)}
-                          className="w-full bg-slate-900/50 border border-slate-800 text-xs md:text-sm text-slate-200 rounded-md pl-9 pr-4 py-1.5 md:py-2 focus:outline-none focus:border-blue-500 transition-colors shadow-inner" 
-                        />
-                      </div>
+                        <IconExport size={12} /> {isExporting ? '...' : 'PDF'}
+                      </button>
                     </div>
-                  </div>
 
-                  <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl shadow-xl w-full flex-1 flex flex-col min-h-0 overflow-hidden">
-                    {/* SCROLL ACTIVO ACÁ */}
-                    <div className="overflow-auto flex-1 custom-scrollbar">
-                      <table className="w-full text-left text-xs md:text-sm text-slate-300 min-w-[700px]">
-                        {/* THEAD con fondo sólido */}
-                        <thead className="bg-[#0b1120] uppercase text-[9px] md:text-[10px] tracking-widest text-slate-500 border-b border-slate-800/60 sticky top-0 z-20">
-                          <tr>
-                            <th className="px-4 md:px-6 py-3 font-semibold">N° Expediente</th>
-                            <th className="px-4 md:px-6 py-3 font-semibold">Fecha</th>
-                            <th className="px-4 md:px-6 py-3 font-semibold">Tipificación del Delito</th>
-                            <th className="px-4 md:px-6 py-3 font-semibold">Modalidad de Ejecución</th>
-                            <th className="px-4 md:px-6 py-3 font-semibold whitespace-nowrap">Estado Procesal Actual</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-800/40">
-                          {expedientesFiltrados.map((delito) => (
-                            <tr key={delito.id} className="hover:bg-slate-800/30 transition-colors group">
-                              <td className="px-4 md:px-6 py-3 md:py-3.5 text-blue-400 font-medium whitespace-nowrap">{delito.id}</td>
-                              <td className="px-4 md:px-6 py-3 md:py-3.5 text-slate-400 whitespace-nowrap">{delito.fecha}</td>
-                              <td className="px-4 md:px-6 py-3 md:py-3.5">
-                                <span className={`px-2 py-1 rounded text-[9px] md:text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${delito.tipo.includes('Arma') || delito.tipo.includes('Homicidio') || delito.tipo.includes('Abuso') ? 'text-red-400 bg-red-500/5' : 'text-orange-400 bg-orange-500/5'}`}>
-                                  {delito.tipo}
-                                </span>
-                              </td>
-                              <td className="px-4 md:px-6 py-3 md:py-3.5 text-slate-300 group-hover:text-slate-200 transition-colors">{delito.modalidad}</td>
-                              <td className="px-4 md:px-6 py-3 md:py-3.5 whitespace-nowrap">
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_5px_currentColor] ${delito.estado === 'Aprehendido' ? 'bg-emerald-500 text-emerald-500' : delito.estado.includes('Investigación') ? 'bg-blue-500 text-blue-500' : 'bg-slate-500 text-slate-500'}`}></div>
-                                  <span className="text-slate-300 font-medium text-[10px] md:text-xs tracking-wide">{delito.estado}</span>
-                                </div>
-                              </td>
+                    <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl shadow-xl max-w-4xl w-full flex-1 flex flex-col min-h-0 overflow-hidden">
+                      <div className="overflow-auto flex-1 custom-scrollbar">
+                        <table className="w-full text-left text-xs md:text-sm text-slate-300 min-w-[500px]">
+                          <thead className="bg-[#0b1120] uppercase text-[9px] md:text-[10px] tracking-widest text-slate-500 border-b border-slate-800/60 sticky top-0 z-20">
+                            <tr>
+                              <th className="px-4 md:px-6 py-3 font-semibold w-1/2">Tipificación del Delito</th>
+                              <th className="px-4 md:px-6 py-3 font-semibold text-center">Total Registrado</th>
+                              <th className="px-4 md:px-6 py-3 font-semibold text-center">Nivel de Alerta</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {expedientesFiltrados.length === 0 && (
-                        <div className="text-center py-8 text-slate-500 text-xs">No se encontraron expedientes que coincidan con la búsqueda.</div>
-                      )}
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/40">
+                            {mockResumen.map((item, index) => (
+                              <tr key={index} className="hover:bg-slate-800/30 transition-colors group">
+                                <td className="px-4 md:px-6 py-3 md:py-4 font-medium text-slate-200">{item.tipo}</td>
+                                <td className="px-4 md:px-6 py-3 md:py-4 text-center">
+                                  <span className="text-lg md:text-xl font-bold text-slate-100">{item.cantidad}</span>
+                                </td>
+                                <td className="px-4 md:px-6 py-3 md:py-4 flex justify-center">
+                                  <span className={`px-2 md:px-3 py-1 rounded text-[9px] md:text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${
+                                    item.tendencia === 'alta' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 
+                                    item.tendencia === 'media' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 
+                                    'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+                                  }`}>
+                                    {item.tendencia}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* --- PESTAÑA 3: GRÁFICOS --- */}
-              {activeTab === 'graficos' && (
-                <div className="animate-in fade-in duration-300 h-full flex flex-col min-h-0">
-                  <h3 className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-widest mb-4 shrink-0">Resumen Analítico Jurisdiccional</h3>
-                  {/* SCROLL ACTIVO ACÁ */}
-                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-0">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 pb-4">
-                      
-                      <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 flex flex-col h-64 lg:h-72">
-                        <h4 className="text-[9px] md:text-[10px] uppercase text-slate-500 font-bold mb-3 tracking-widest text-center">Top Delitos Mensuales</h4>
-                        <div className="flex-1 w-full min-h-0">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={mockResumen.slice(0, 4)} layout="vertical" margin={{ top: 0, right: 10, left: -25, bottom: 0 }}>
-                              <XAxis type="number" hide />
-                              <YAxis dataKey="tipo" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} width={130} />
-                              <RechartsTooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', fontSize: 11 }} />
-                              <Bar dataKey="cantidad" radius={[0, 4, 4, 0]}>
-                                {mockResumen.slice(0, 4).map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                                ))}
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
+                {activeTab === 'expedientes' && (
+                  <div className="animate-in fade-in duration-300 h-full flex flex-col min-h-0">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-3 shrink-0">
+                      <h3 className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-widest">Base Operativa Completa</h3>
+                      <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                        <select 
+                          value={filterDelito}
+                          onChange={(e) => setFilterDelito(e.target.value)}
+                          className="bg-slate-900 border border-slate-800 text-xs text-slate-300 rounded-md px-3 py-1.5 md:py-2 focus:outline-none focus:border-blue-500"
+                        >
+                          <option value="TODOS">Todas las Tipificaciones</option>
+                          {mockResumen.map(d => <option key={d.tipo} value={d.tipo}>{d.tipo}</option>)}
+                        </select>
+                        <div className="relative flex-1 sm:w-64">
+                          <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input 
+                            type="text" 
+                            placeholder="Buscar Expediente o Modalidad..." 
+                            value={searchExpediente}
+                            onChange={(e) => setSearchExpediente(e.target.value)}
+                            className="w-full bg-slate-900/50 border border-slate-800 text-xs md:text-sm text-slate-200 rounded-md pl-9 pr-4 py-1.5 md:py-2 focus:outline-none focus:border-blue-500 transition-colors shadow-inner" 
+                          />
                         </div>
                       </div>
+                    </div>
 
-                      <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 flex flex-col h-64 lg:h-72 lg:col-span-1">
-                        <h4 className="text-[9px] md:text-[10px] uppercase text-slate-500 font-bold mb-3 tracking-widest text-center">Evolución del Delito (6 meses)</h4>
-                        <div className="flex-1 w-full min-h-0">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={dataHistoricaLineas} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                              <RechartsTooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', fontSize: 11 }} />
-                              <Line type="monotone" dataKey="causas" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 3 }} activeDot={{ r: 5 }} />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
+                    <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl shadow-xl w-full flex-1 flex flex-col min-h-0 overflow-hidden">
+                      <div className="overflow-auto flex-1 custom-scrollbar">
+                        <table className="w-full text-left text-xs md:text-sm text-slate-300 min-w-[700px]">
+                          <thead className="bg-[#0b1120] uppercase text-[9px] md:text-[10px] tracking-widest text-slate-500 border-b border-slate-800/60 sticky top-0 z-20">
+                            <tr>
+                              <th className="px-4 md:px-6 py-3 font-semibold">N° Expediente</th>
+                              <th className="px-4 md:px-6 py-3 font-semibold">Fecha</th>
+                              <th className="px-4 md:px-6 py-3 font-semibold">Tipificación del Delito</th>
+                              <th className="px-4 md:px-6 py-3 font-semibold">Modalidad de Ejecución</th>
+                              <th className="px-4 md:px-6 py-3 font-semibold whitespace-nowrap">Estado Procesal Actual</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/40">
+                            {expedientesFiltrados.map((delito) => (
+                              <tr key={delito.id} className="hover:bg-slate-800/30 transition-colors group">
+                                <td className="px-4 md:px-6 py-3 md:py-3.5 text-blue-400 font-medium whitespace-nowrap">{delito.id}</td>
+                                <td className="px-4 md:px-6 py-3 md:py-3.5 text-slate-400 whitespace-nowrap">{delito.fecha}</td>
+                                <td className="px-4 md:px-6 py-3 md:py-3.5">
+                                  <span className={`px-2 py-1 rounded text-[9px] md:text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${delito.tipo.includes('Arma') || delito.tipo.includes('Homicidio') || delito.tipo.includes('Abuso') ? 'text-red-400 bg-red-500/5' : 'text-orange-400 bg-orange-500/5'}`}>
+                                    {delito.tipo}
+                                  </span>
+                                </td>
+                                <td className="px-4 md:px-6 py-3 md:py-3.5 text-slate-300 group-hover:text-slate-200 transition-colors">{delito.modalidad}</td>
+                                <td className="px-4 md:px-6 py-3 md:py-3.5 whitespace-nowrap">
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_5px_currentColor] ${delito.estado === 'Aprehendido' ? 'bg-emerald-500 text-emerald-500' : delito.estado.includes('Investigación') ? 'bg-blue-500 text-blue-500' : 'bg-slate-500 text-slate-500'}`}></div>
+                                    <span className="text-slate-300 font-medium text-[10px] md:text-xs tracking-wide">{delito.estado}</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {expedientesFiltrados.length === 0 && (
+                          <div className="text-center py-8 text-slate-500 text-xs">No se encontraron expedientes que coincidan con la búsqueda.</div>
+                        )}
                       </div>
+                    </div>
+                  </div>
+                )}
 
-                      <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 flex flex-col h-64 lg:h-72">
-                        <h4 className="text-[9px] md:text-[10px] uppercase text-slate-500 font-bold mb-1 tracking-widest text-center">Bienes Jurídicos Afectados</h4>
-                        <div className="flex-1 w-full min-h-0 relative flex items-center justify-center">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie 
-                                data={dataBienesJuridicosPie} 
-                                cx="50%" 
-                                cy="50%" 
-                                innerRadius={50} 
-                                outerRadius={65} 
-                                paddingAngle={4} 
-                                dataKey="value"
-                                label={({ percent }) => percent ? `${(percent * 100).toFixed(0)}%` : ''}
-                              >
-                                {dataBienesJuridicosPie.map((entry, index) => (
-                                  <Cell key={`pie-cell-${index}`} fill={index === 0 ? "#ef4444" : "#f97316"} />
-                                ))}
-                              </Pie>
-                              <RechartsTooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', fontSize: 11 }} />
-                            </PieChart>
-                          </ResponsiveContainer>
-                          <div className="absolute bottom-0 flex gap-4 text-[9px] text-slate-400 font-medium">
-                            <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Propiedad</div>
-                            <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div> Personas</div>
+                {activeTab === 'graficos' && (
+                  <div className="animate-in fade-in duration-300 h-full flex flex-col min-h-0">
+                    <h3 className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-widest mb-4 shrink-0">Resumen Analítico Jurisdiccional</h3>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-0">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 pb-4">
+                        
+                        <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 flex flex-col h-64 lg:h-72">
+                          <h4 className="text-[9px] md:text-[10px] uppercase text-slate-500 font-bold mb-3 tracking-widest text-center">Top Delitos Mensuales</h4>
+                          <div className="flex-1 w-full min-h-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={mockResumen.slice(0, 4)} layout="vertical" margin={{ top: 0, right: 10, left: -25, bottom: 0 }}>
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="tipo" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} width={130} />
+                                <RechartsTooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', fontSize: 11 }} />
+                                <Bar dataKey="cantidad" radius={[0, 4, 4, 0]}>
+                                  {mockResumen.slice(0, 4).map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
                           </div>
                         </div>
-                      </div>
 
+                        <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 flex flex-col h-64 lg:h-72 lg:col-span-1">
+                          <h4 className="text-[9px] md:text-[10px] uppercase text-slate-500 font-bold mb-3 tracking-widest text-center">Evolución del Delito (6 meses)</h4>
+                          <div className="flex-1 w-full min-h-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={dataHistoricaLineas} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                                <RechartsTooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', fontSize: 11 }} />
+                                <Line type="monotone" dataKey="causas" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 3 }} activeDot={{ r: 5 }} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 flex flex-col h-64 lg:h-72">
+                          <h4 className="text-[9px] md:text-[10px] uppercase text-slate-500 font-bold mb-1 tracking-widest text-center">Bienes Jurídicos Afectados</h4>
+                          <div className="flex-1 w-full min-h-0 relative flex items-center justify-center">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie 
+                                  data={dataBienesJuridicosPie} 
+                                  cx="50%" 
+                                  cy="50%" 
+                                  innerRadius={50} 
+                                  outerRadius={65} 
+                                  paddingAngle={4} 
+                                  dataKey="value"
+                                  label={({ percent }) => percent ? `${(percent * 100).toFixed(0)}%` : ''}
+                                >
+                                  {dataBienesJuridicosPie.map((entry, index) => (
+                                    <Cell key={`pie-cell-${index}`} fill={index === 0 ? "#ef4444" : "#f97316"} />
+                                  ))}
+                                </Pie>
+                                <RechartsTooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', fontSize: 11 }} />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="absolute bottom-0 flex gap-4 text-[9px] text-slate-400 font-medium">
+                              <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Propiedad</div>
+                              <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div> Personas</div>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
+              </div>
             </div>
+
+            {/* CONTENEDOR OCULTO PARA EXPORTACIÓN PERFECTA DE GRÁFICOS AL PDF */}
+            <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', pointerEvents: 'none', opacity: 0 }}>
+              <div id="export-charts-container-hidden" className="w-[1100px] h-[350px] bg-[#0f172a] p-6 flex gap-6">
+                
+                <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 flex-1 flex flex-col items-center">
+                  <h4 className="text-[10px] uppercase text-slate-500 font-bold mb-3 tracking-widest text-center">Top Delitos Mensuales</h4>
+                  <BarChart width={300} height={250} data={mockResumen.slice(0, 4)} layout="vertical" margin={{ top: 0, right: 10, left: -25, bottom: 0 }}>
+                    <XAxis type="number" hide />
+                    <YAxis dataKey="tipo" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} width={130} />
+                    <Bar dataKey="cantidad" radius={[0, 4, 4, 0]}>
+                      {mockResumen.slice(0, 4).map((entry, index) => (<Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />))}
+                    </Bar>
+                  </BarChart>
+                </div>
+
+                <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 flex-1 flex flex-col items-center">
+                  <h4 className="text-[10px] uppercase text-slate-500 font-bold mb-3 tracking-widest text-center">Evolución del Delito (6 meses)</h4>
+                  <LineChart width={300} height={250} data={dataHistoricaLineas} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                    <Line type="monotone" dataKey="causas" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 3 }} />
+                  </LineChart>
+                </div>
+
+                <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 flex-1 flex flex-col items-center relative">
+                  <h4 className="text-[10px] uppercase text-slate-500 font-bold mb-1 tracking-widest text-center">Bienes Jurídicos Afectados</h4>
+                  <PieChart width={300} height={250}>
+                    <Pie data={dataBienesJuridicosPie} cx="50%" cy="50%" innerRadius={50} outerRadius={65} paddingAngle={4} dataKey="value" label={({ percent }) => percent ? `${(percent * 100).toFixed(0)}%` : ''}>
+                      {dataBienesJuridicosPie.map((entry, index) => (<Cell key={`pie-cell-${index}`} fill={index === 0 ? "#ef4444" : "#f97316"} />))}
+                    </Pie>
+                  </PieChart>
+                  <div className="absolute bottom-4 flex gap-4 text-[9px] text-slate-400 font-medium">
+                    <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Propiedad</div>
+                    <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div> Personas</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+            {/* --- FIN DEL CONTENEDOR OCULTO --- */}
+
           </div>
         </>
       )}
