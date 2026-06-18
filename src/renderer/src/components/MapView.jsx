@@ -1,10 +1,15 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable react/prop-types */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useOutletContext } from 'react-router-dom' 
+
+import { 
+  BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, 
+  LineChart, Line, PieChart, Pie, Cell, CartesianGrid 
+} from 'recharts'
 
 import logoPolicia from '../assets/logo-policia.png' 
 import logoUre from '../assets/logo-ure.png' 
@@ -20,12 +25,25 @@ const policiaIcon = new L.Icon({
 
 function MapUpdater() {
   const map = useMap()
+  
   useEffect(() => {
-    const timer = setTimeout(() => {
+    // Un ResizeObserver vigila los cambios de tamaño del contenedor en tiempo real
+    const resizeObserver = new ResizeObserver(() => {
       map.invalidateSize()
-    }, 500)
-    return () => clearTimeout(timer)
+    })
+    
+    const container = map.getContainer()
+    if (container) {
+      resizeObserver.observe(container)
+    }
+    
+    // Limpieza cuando el componente se desmonta
+    return () => {
+      if (container) resizeObserver.unobserve(container)
+      resizeObserver.disconnect()
+    }
   }, [map])
+  
   return null
 }
 
@@ -38,10 +56,8 @@ const IconExport = ({ size = 16, className = "" }) => <svg width={size} height={
 const IconClose = ({ size = 16, className = "" }) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 
 const PinesPoliciales = ({ abrirConsola }) => {
-  // Ahora también recibimos "isMapPristine"
   const { selectedComisarias, isMapPristine } = useOutletContext() || { selectedComisarias: [], isMapPristine: true }
 
-  // ACÁ OCURRE LA MAGIA: Si el mapa está virgen, muestra todo. Si no, respeta el array (incluso si está vacío)
   const comisariasAMostrar = isMapPristine 
     ? comisariasRegionalEste 
     : comisariasRegionalEste.filter((comisaria) => selectedComisarias.includes(comisaria.id))
@@ -78,9 +94,14 @@ export default function MapView() {
   const [modalStartDate, setModalStartDate] = useState('2026-05')
   const [modalEndDate, setModalEndDate] = useState(currentMonth)
 
+  const [searchExpediente, setSearchExpediente] = useState('')
+  const [filterDelito, setFilterDelito] = useState('TODOS')
+
   const abrirConsola = (comisaria) => {
     setIsClosing(false)
     setActiveTab('resumen')
+    setSearchExpediente('')
+    setFilterDelito('TODOS')
     setComisariaSeleccionada(comisaria)
   }
 
@@ -102,13 +123,31 @@ export default function MapView() {
   ]
 
   const mockExpedientes = [
-    { id: 1, fecha: '2026-05-12', tipo: 'Robo con Arma de Fuego', modalidad: 'Motochorros', estado: 'En Investigación' },
-    { id: 2, fecha: '2026-05-14', tipo: 'Hurtos', modalidad: 'Escalamiento', estado: 'Cerrada / Sin efecto' },
-    { id: 3, fecha: '2026-05-18', tipo: 'Lesiones', modalidad: 'Riña en vía pública', estado: 'Aprehendido' },
-    { id: 4, fecha: '2026-05-22', tipo: 'Daños', modalidad: 'Vandalismo', estado: 'En Investigación' },
-    { id: 5, fecha: '2026-05-29', tipo: 'Robo Simple/Agravado', modalidad: 'Levantamiento en vía pública', estado: 'En Investigación' },
-    { id: 6, fecha: '2026-05-31', tipo: 'Amenazas', modalidad: 'Violencia de Género', estado: 'Medida Perimetral' },
+    { id: 'EXP-2026-0412', fecha: '2026-05-12', tipo: 'Robo con Arma de Fuego', modalidad: 'Motochorros', estado: 'En Investigación' },
+    { id: 'EXP-2026-0514', fecha: '2026-05-14', tipo: 'Hurtos', modalidad: 'Escalamiento', estado: 'Cerrada / Sin efecto' },
+    { id: 'EXP-2026-0518', fecha: '2026-05-18', tipo: 'Lesiones', modalidad: 'Riña en vía pública', estado: 'Aprehendido' },
+    { id: 'EXP-2026-0522', fecha: '2026-05-22', tipo: 'Amenazas', modalidad: 'Vandalismo', estado: 'En Investigación' },
+    { id: 'EXP-2026-0529', fecha: '2026-05-29', tipo: 'Robo Simple/Agravado', modalidad: 'Levantamiento en vía pública', estado: 'En Investigación' },
+    { id: 'EXP-2026-0531', fecha: '2026-05-31', tipo: 'Abuso Sexual con Acceso Carnal', modalidad: 'Violencia de Género', estado: 'Medida Perimetral' },
   ]
+
+  const expedientesFiltrados = useMemo(() => {
+    return mockExpedientes.filter(exp => {
+      const cumpleQuery = exp.id.toLowerCase().includes(searchExpediente.toLowerCase()) || 
+                          exp.modalidad.toLowerCase().includes(searchExpediente.toLowerCase());
+      const cumpleTipo = filterDelito === 'TODOS' || exp.tipo === filterDelito;
+      return cumpleQuery && cumpleTipo;
+    })
+  }, [searchExpediente, filterDelito]);
+
+  const CHART_COLORS = ['#3b82f6', '#10b981', '#eab308', '#ef4444', '#8b5cf6', '#f97316'];
+  const dataHistoricaLineas = [
+    { name: 'Ene', causas: 24 }, { name: 'Feb', causas: 45 }, { name: 'Mar', causas: 31 },
+    { name: 'Abr', causas: 56 }, { name: 'May', causas: 48 }, { name: 'Jun', causas: 62 }
+  ];
+  const dataBienesJuridicosPie = [
+    { name: 'Contra la Propiedad', value: 91 }, { name: 'Contra las Personas', value: 46 }
+  ];
 
   return (
     <div className="absolute inset-0 overflow-hidden z-0 flex flex-col">
@@ -124,7 +163,7 @@ export default function MapView() {
       >
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
         <MapUpdater />
         <PinesPoliciales abrirConsola={abrirConsola} />
@@ -135,7 +174,6 @@ export default function MapView() {
           <div 
             className={`absolute inset-0 bg-black/60 backdrop-blur-md z-[4000] cursor-pointer transition-opacity duration-300 ease-in-out ${isClosing ? 'opacity-0' : 'opacity-100'}`}
             onClick={cerrarConsola}
-            title="Hacé clic aquí para volver al mapa"
           ></div>
 
           <div className={`absolute bottom-0 left-0 w-full h-[80vh] md:h-[55vh] bg-slate-950 border-t border-blue-500/30 shadow-[0_-20px_50px_rgba(0,0,0,0.8)] flex flex-col z-[5000] transition-transform duration-300 ease-in-out ${isClosing ? 'translate-y-full' : 'translate-y-0'}`}>
@@ -185,27 +223,31 @@ export default function MapView() {
                   <IconExport size={14} /> Exportar
                 </button>
                 <div className="h-6 w-px bg-slate-800 mx-1"></div>
-                <button onClick={cerrarConsola} className="p-2 text-slate-500 hover:text-white bg-slate-900 hover:bg-red-500/20 hover:border-red-500/50 border border-slate-800 rounded-lg transition-all" title="Cerrar Consola">
+                <button onClick={cerrarConsola} className="p-2 text-slate-500 hover:text-white bg-slate-900 hover:bg-red-500/20 hover:border-red-500/50 border border-slate-800 rounded-lg transition-all">
                   <IconClose size={18} />
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 relative z-10">
+            {/* CORRECCIÓN SCROLL: Le sacamos el overflow-y-auto al padre y forzamos el overflow-hidden. Dejamos que los hijos hagan el scroll. */}
+            <div className="flex-1 overflow-hidden p-4 md:p-6 relative z-10 flex flex-col min-h-0">
               
+              {/* --- PESTAÑA 1: RESUMEN MENSUAL --- */}
               {activeTab === 'resumen' && (
-                <div className="animate-in fade-in duration-300 h-full flex flex-col">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
-                    <h3 className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-widest">Consolidado de Causas</h3>
+                <div className="animate-in fade-in duration-300 h-full flex flex-col min-h-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 shrink-0">
+                    <h3 className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-widest">Consolidado de Causas (Último mes)</h3>
                     <button className="md:hidden self-start px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-bold rounded flex items-center gap-2">
                       <IconExport size={12} /> Exportar
                     </button>
                   </div>
 
-                  <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl overflow-hidden shadow-xl max-w-4xl w-full">
-                    <div className="overflow-x-auto custom-scrollbar">
+                  <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl shadow-xl max-w-4xl w-full flex-1 flex flex-col min-h-0 overflow-hidden">
+                    {/* SCROLL ACTIVO ACÁ */}
+                    <div className="overflow-auto flex-1 custom-scrollbar">
                       <table className="w-full text-left text-xs md:text-sm text-slate-300 min-w-[500px]">
-                        <thead className="bg-slate-900/80 uppercase text-[9px] md:text-[10px] tracking-widest text-slate-500 border-b border-slate-800/60">
+                        {/* THEAD con fondo completamente sólido y Z-Index más alto */}
+                        <thead className="bg-[#0b1120] uppercase text-[9px] md:text-[10px] tracking-widest text-slate-500 border-b border-slate-800/60 sticky top-0 z-20">
                           <tr>
                             <th className="px-4 md:px-6 py-3 font-semibold w-1/2">Tipificación del Delito</th>
                             <th className="px-4 md:px-6 py-3 font-semibold text-center">Total Registrado</th>
@@ -237,37 +279,58 @@ export default function MapView() {
                 </div>
               )}
 
+              {/* --- PESTAÑA 2: EXPEDIENTES --- */}
               {activeTab === 'expedientes' && (
-                <div className="animate-in fade-in duration-300 h-full flex flex-col">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-3">
+                <div className="animate-in fade-in duration-300 h-full flex flex-col min-h-0">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-3 shrink-0">
                     <h3 className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-widest">Base Operativa Completa</h3>
-                    <div className="relative w-full lg:w-auto">
-                      <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                      <input type="text" placeholder="Buscar DNI, Fecha o Expediente..." className="w-full lg:w-72 bg-slate-900/50 border border-slate-800 text-xs md:text-sm text-slate-200 rounded-md pl-9 pr-4 py-1.5 md:py-2 focus:outline-none focus:border-blue-500 transition-colors shadow-inner" />
+                    <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                      <select 
+                        value={filterDelito}
+                        onChange={(e) => setFilterDelito(e.target.value)}
+                        className="bg-slate-900 border border-slate-800 text-xs text-slate-300 rounded-md px-3 py-1.5 md:py-2 focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="TODOS">Todas las Tipificaciones</option>
+                        {mockResumen.map(d => <option key={d.tipo} value={d.tipo}>{d.tipo}</option>)}
+                      </select>
+                      <div className="relative flex-1 sm:w-64">
+                        <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                        <input 
+                          type="text" 
+                          placeholder="Buscar Expediente o Modalidad..." 
+                          value={searchExpediente}
+                          onChange={(e) => setSearchExpediente(e.target.value)}
+                          className="w-full bg-slate-900/50 border border-slate-800 text-xs md:text-sm text-slate-200 rounded-md pl-9 pr-4 py-1.5 md:py-2 focus:outline-none focus:border-blue-500 transition-colors shadow-inner" 
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl overflow-hidden shadow-xl w-full">
-                    <div className="overflow-x-auto custom-scrollbar">
+                  <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl shadow-xl w-full flex-1 flex flex-col min-h-0 overflow-hidden">
+                    {/* SCROLL ACTIVO ACÁ */}
+                    <div className="overflow-auto flex-1 custom-scrollbar">
                       <table className="w-full text-left text-xs md:text-sm text-slate-300 min-w-[700px]">
-                        <thead className="bg-slate-900/80 uppercase text-[9px] md:text-[10px] tracking-widest text-slate-500 border-b border-slate-800/60">
+                        {/* THEAD con fondo sólido */}
+                        <thead className="bg-[#0b1120] uppercase text-[9px] md:text-[10px] tracking-widest text-slate-500 border-b border-slate-800/60 sticky top-0 z-20">
                           <tr>
+                            <th className="px-4 md:px-6 py-3 font-semibold">N° Expediente</th>
                             <th className="px-4 md:px-6 py-3 font-semibold">Fecha</th>
                             <th className="px-4 md:px-6 py-3 font-semibold">Tipificación del Delito</th>
                             <th className="px-4 md:px-6 py-3 font-semibold">Modalidad de Ejecución</th>
-                            <th className="px-4 md:px-6 py-3 font-semibold">Estado Procesal Actual</th>
+                            <th className="px-4 md:px-6 py-3 font-semibold whitespace-nowrap">Estado Procesal Actual</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
-                          {mockExpedientes.map((delito) => (
+                          {expedientesFiltrados.map((delito) => (
                             <tr key={delito.id} className="hover:bg-slate-800/30 transition-colors group">
-                              <td className="px-4 md:px-6 py-3 md:py-3.5 text-slate-200 font-medium whitespace-nowrap">{delito.fecha}</td>
+                              <td className="px-4 md:px-6 py-3 md:py-3.5 text-blue-400 font-medium whitespace-nowrap">{delito.id}</td>
+                              <td className="px-4 md:px-6 py-3 md:py-3.5 text-slate-400 whitespace-nowrap">{delito.fecha}</td>
                               <td className="px-4 md:px-6 py-3 md:py-3.5">
-                                <span className={`px-2 py-1 rounded text-[9px] md:text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${delito.tipo.includes('Arma') || delito.tipo.includes('Homicidio') || delito.tipo.includes('Abuso') ? 'text-red-400' : 'text-orange-400'}`}>
+                                <span className={`px-2 py-1 rounded text-[9px] md:text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${delito.tipo.includes('Arma') || delito.tipo.includes('Homicidio') || delito.tipo.includes('Abuso') ? 'text-red-400 bg-red-500/5' : 'text-orange-400 bg-orange-500/5'}`}>
                                   {delito.tipo}
                                 </span>
                               </td>
-                              <td className="px-4 md:px-6 py-3 md:py-3.5 text-slate-400 group-hover:text-slate-300 transition-colors">{delito.modalidad}</td>
+                              <td className="px-4 md:px-6 py-3 md:py-3.5 text-slate-300 group-hover:text-slate-200 transition-colors">{delito.modalidad}</td>
                               <td className="px-4 md:px-6 py-3 md:py-3.5 whitespace-nowrap">
                                 <div className="flex items-center gap-2">
                                   <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_5px_currentColor] ${delito.estado === 'Aprehendido' ? 'bg-emerald-500 text-emerald-500' : delito.estado.includes('Investigación') ? 'bg-blue-500 text-blue-500' : 'bg-slate-500 text-slate-500'}`}></div>
@@ -278,44 +341,84 @@ export default function MapView() {
                           ))}
                         </tbody>
                       </table>
+                      {expedientesFiltrados.length === 0 && (
+                        <div className="text-center py-8 text-slate-500 text-xs">No se encontraron expedientes que coincidan con la búsqueda.</div>
+                      )}
                     </div>
                   </div>
                 </div>
               )}
 
+              {/* --- PESTAÑA 3: GRÁFICOS --- */}
               {activeTab === 'graficos' && (
-                <div className="animate-in fade-in duration-300 h-full flex flex-col">
-                  <h3 className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-widest mb-4">Resumen Analítico Jurisdiccional</h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
-                    <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 md:p-6 shadow-lg">
-                      <h4 className="text-[9px] md:text-[10px] uppercase text-slate-500 font-bold mb-4 md:mb-5 tracking-widest text-center">Concentración por Tipología</h4>
-                      <div className="space-y-3 md:space-y-4">
-                        <div>
-                          <div className="flex justify-between text-[10px] md:text-xs mb-1.5"><span className="text-slate-300">Robo con Arma de Fuego</span><span className="text-slate-100 font-bold">35%</span></div>
-                          <div className="w-full bg-slate-900 rounded-full h-1.5 md:h-2 overflow-hidden border border-slate-800"><div className="bg-red-500 h-full rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]" style={{width: '35%'}}></div></div>
-                        </div>
-                        <div>
-                          <div className="flex justify-between text-[10px] md:text-xs mb-1.5"><span className="text-slate-300">Hurtos</span><span className="text-slate-100 font-bold">25%</span></div>
-                          <div className="w-full bg-slate-900 rounded-full h-1.5 md:h-2 overflow-hidden border border-slate-800"><div className="bg-orange-500 h-full rounded-full shadow-[0_0_8px_rgba(249,115,22,0.6)]" style={{width: '25%'}}></div></div>
-                        </div>
-                        <div>
-                          <div className="flex justify-between text-[10px] md:text-xs mb-1.5"><span className="text-slate-300">Lesiones</span><span className="text-slate-100 font-bold">20%</span></div>
-                          <div className="w-full bg-slate-900 rounded-full h-1.5 md:h-2 overflow-hidden border border-slate-800"><div className="bg-yellow-500 h-full rounded-full shadow-[0_0_8px_rgba(234,179,8,0.6)]" style={{width: '20%'}}></div></div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 md:p-6 flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-12 shadow-lg">
-                      <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(0,0,0,0.5)]" style={{ background: 'conic-gradient(#3b82f6 0% 45%, #10b981 45% 75%, #334155 75% 100%)' }}>
-                        <div className="absolute w-16 h-16 md:w-24 md:h-24 bg-[#0b1120] rounded-full flex items-center justify-center flex-col border border-slate-800/50">
-                          <span className="text-xl md:text-2xl font-black text-slate-100">137</span>
-                          <span className="text-[8px] md:text-[9px] text-slate-500 uppercase tracking-widest mt-0.5">Expedientes</span>
+                <div className="animate-in fade-in duration-300 h-full flex flex-col min-h-0">
+                  <h3 className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-widest mb-4 shrink-0">Resumen Analítico Jurisdiccional</h3>
+                  {/* SCROLL ACTIVO ACÁ */}
+                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-0">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 pb-4">
+                      
+                      <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 flex flex-col h-64 lg:h-72">
+                        <h4 className="text-[9px] md:text-[10px] uppercase text-slate-500 font-bold mb-3 tracking-widest text-center">Top Delitos Mensuales</h4>
+                        <div className="flex-1 w-full min-h-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={mockResumen.slice(0, 4)} layout="vertical" margin={{ top: 0, right: 10, left: -25, bottom: 0 }}>
+                              <XAxis type="number" hide />
+                              <YAxis dataKey="tipo" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} width={130} />
+                              <RechartsTooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', fontSize: 11 }} />
+                              <Bar dataKey="cantidad" radius={[0, 4, 4, 0]}>
+                                {mockResumen.slice(0, 4).map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
                         </div>
                       </div>
-                      <div className="flex flex-col gap-3 md:gap-4 text-[10px] md:text-xs text-slate-300 font-medium w-full sm:w-auto">
-                        <div className="flex items-center gap-3"><div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]"></div> En Proceso de Inv.</div>
-                        <div className="flex items-center gap-3"><div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.8)]"></div> Causa Resuelta</div>
-                        <div className="flex items-center gap-3"><div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-slate-600"></div> Archivo / Desestimada</div>
+
+                      <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 flex flex-col h-64 lg:h-72 lg:col-span-1">
+                        <h4 className="text-[9px] md:text-[10px] uppercase text-slate-500 font-bold mb-3 tracking-widest text-center">Evolución del Delito (6 meses)</h4>
+                        <div className="flex-1 w-full min-h-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={dataHistoricaLineas} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                              <RechartsTooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', fontSize: 11 }} />
+                              <Line type="monotone" dataKey="causas" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 3 }} activeDot={{ r: 5 }} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
                       </div>
+
+                      <div className="bg-[#0b1120] border border-slate-800/80 rounded-xl p-4 flex flex-col h-64 lg:h-72">
+                        <h4 className="text-[9px] md:text-[10px] uppercase text-slate-500 font-bold mb-1 tracking-widest text-center">Bienes Jurídicos Afectados</h4>
+                        <div className="flex-1 w-full min-h-0 relative flex items-center justify-center">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie 
+                                data={dataBienesJuridicosPie} 
+                                cx="50%" 
+                                cy="50%" 
+                                innerRadius={50} 
+                                outerRadius={65} 
+                                paddingAngle={4} 
+                                dataKey="value"
+                                label={({ percent }) => percent ? `${(percent * 100).toFixed(0)}%` : ''}
+                              >
+                                {dataBienesJuridicosPie.map((entry, index) => (
+                                  <Cell key={`pie-cell-${index}`} fill={index === 0 ? "#ef4444" : "#f97316"} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', fontSize: 11 }} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="absolute bottom-0 flex gap-4 text-[9px] text-slate-400 font-medium">
+                            <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Propiedad</div>
+                            <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div> Personas</div>
+                          </div>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
                 </div>

@@ -65,18 +65,10 @@ export default function DashboardLayout() {
   const [selectedPropiedad, setSelectedPropiedad] = useState([])
   const [selectedPersonas, setSelectedPersonas] = useState([])
 
-  // ==========================================
-  // ESTADO NUEVO: Bandera del mapa inicial
-  // ==========================================
   const [isMapPristine, setIsMapPristine] = useState(true)
 
-  // ==========================================
-  // LÓGICA ACTUALIZADA DE CHECKBOXES/SWITCHES
-  // ==========================================
   const toggleItem = (id, currentList, setList, isComisaria = false) => {
-    // Si toca una comisaría específica, ya rompemos el estado "virgen" del mapa
     if (isComisaria) setIsMapPristine(false)
-    
     if (currentList.includes(id)) {
       setList(currentList.filter(item => item !== id))
     } else {
@@ -86,7 +78,7 @@ export default function DashboardLayout() {
 
   const isAllComisarias = selectedComisarias.length === comisariasRegionalEste.length && comisariasRegionalEste.length > 0
   const toggleAllComisarias = () => {
-    setIsMapPristine(false) // Al usar el switch, rompemos el estado virgen sí o sí
+    setIsMapPristine(false)
     isAllComisarias ? setSelectedComisarias([]) : setSelectedComisarias(comisariasRegionalEste.map(c => c.id))
   }
 
@@ -233,8 +225,8 @@ export default function DashboardLayout() {
         </aside>
 
         <main className="flex-1 relative bg-slate-950 overflow-hidden w-full h-full">
-          {/* PASAMOS LA BANDERA COMO CONTEXTO AL MAPVIEW */}
-          <Outlet context={{ selectedComisarias, selectedZonas, selectedPropiedad, selectedPersonas, isMapPristine }} />
+          {/* PASAMOS LA VARIABLE isRightPanelOpen AL CONTEXTO */}
+          <Outlet context={{ selectedComisarias, selectedZonas, selectedPropiedad, selectedPersonas, isMapPristine, isRightPanelOpen }} />
         </main>
 
         <AnimatePresence>
@@ -401,7 +393,10 @@ export default function DashboardLayout() {
                       <History size={16} className="text-blue-500" />
                       <span className="text-sm font-medium tracking-wide">Historial de Cargas</span>
                     </div>
-                    <button onClick={() => setIsRightPanelOpen(false)} className="md:hidden text-slate-500"><X size={20}/></button>
+                    {/* LE QUITAMOS EL md:hidden PARA QUE SE PUEDA CERRAR EN PC Y MÓVIL */}
+                    <button onClick={() => setIsRightPanelOpen(false)} className="p-1 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 transition-colors">
+                      <X size={20}/>
+                    </button>
                   </div>
 
                   <div className="p-4 flex-1 overflow-y-auto custom-scrollbar relative z-10">
@@ -431,7 +426,10 @@ export default function DashboardLayout() {
                       <Filter size={16} className="text-blue-500" />
                       <span className="text-sm font-medium tracking-wide">Motor de Consultas</span>
                     </div>
-                    <button onClick={() => setIsRightPanelOpen(false)} className="md:hidden text-slate-500"><X size={20}/></button>
+                    {/* LE QUITAMOS EL md:hidden PARA QUE SE PUEDA CERRAR EN PC Y MÓVIL */}
+                    <button onClick={() => setIsRightPanelOpen(false)} className="p-1 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 transition-colors">
+                      <X size={20}/>
+                    </button>
                   </div>
 
                   <div className="p-4 flex-1 overflow-y-auto space-y-6 custom-scrollbar pb-56 relative z-10">
@@ -461,7 +459,6 @@ export default function DashboardLayout() {
                         </div>
                       </div>
 
-                      {/* --- SECCIÓN COMISARÍAS --- */}
                       <div className="bg-slate-950/80 backdrop-blur-sm border border-slate-800 rounded-lg overflow-hidden flex flex-col">
                         <div className="flex items-center justify-between p-3 shrink-0">
                           <div 
@@ -498,7 +495,6 @@ export default function DashboardLayout() {
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: '200px', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="px-3 pb-3 border-t border-slate-800 flex flex-col gap-2 pt-2 overflow-y-auto custom-scrollbar">
                               {comisariasRegionalEste.map(comisaria => (
                                 <label key={comisaria.id} className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer hover:text-slate-200">
-                                  {/* AQUÍ PASAMOS TRUE PARA QUE MARCAR UNA COMISARÍA ROMPA EL ESTADO VIRGEN DEL MAPA */}
                                   <input type="checkbox" className="accent-blue-600" checked={selectedComisarias.includes(comisaria.id)} onChange={() => toggleItem(comisaria.id, selectedComisarias, setSelectedComisarias, true)} /> 
                                   {comisaria.nombre}
                                 </label>
@@ -517,7 +513,6 @@ export default function DashboardLayout() {
                         <h3 className="text-xs uppercase tracking-widest font-semibold">Tipos de Delito</h3>
                       </div>
 
-                      {/* --- SECCIÓN DELITOS PROPIEDAD --- */}
                       <div className="bg-slate-950/80 backdrop-blur-sm border border-slate-800 rounded-lg overflow-hidden mb-3">
                         <div className="flex items-center justify-between p-3 shrink-0">
                           <div 
@@ -556,7 +551,6 @@ export default function DashboardLayout() {
                         </AnimatePresence>
                       </div>
 
-                      {/* --- SECCIÓN DELITOS PERSONAS --- */}
                       <div className="bg-slate-950/80 backdrop-blur-sm border border-slate-800 rounded-lg overflow-hidden">
                         <div className="flex items-center justify-between p-3 shrink-0">
                           <div 
